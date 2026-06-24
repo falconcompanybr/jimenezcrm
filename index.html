@@ -1,0 +1,900 @@
+<!DOCTYPE html>
+<html lang="pt-BR"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>jimenez Odontologia — CRM</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<style>html,body,#root{height:100%}body{margin:0;font-family:ui-sans-serif,system-ui,sans-serif}</style>
+</head><body><div id="root"></div>
+<script>window.addEventListener("error",function(ev){var r=document.getElementById("root");if(r&&!r.hasChildNodes()){r.innerHTML='<pre style="white-space:pre-wrap;padding:18px;font:13px ui-monospace,monospace;color:#b91c1c">Erro: '+(ev.message||ev.error)+'</pre>';}});</script>
+<script>
+const { useState, useMemo, useEffect, useRef } = React;
+/* ============ FIREBASE ============
+   ⚠️ CONFIRA/COLE A SUA CONFIG EXATA (copiada do console do Firebase).
+   A apiKey do Firebase Web é pública (pode ficar aqui). O que protege os
+   dados são as REGRAS do Firestore — veja as instruções que te passei. */
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyAiLTm-2UQMv4NvVPfsdfeQ-H0NOLXNNOg",
+  authDomain: "crmjimenez-1bd9c.firebaseapp.com",
+  projectId: "crmjimenez-1bd9c",
+  storageBucket: "crmjimenez-1bd9c.firebasestorage.app",
+  messagingSenderId: "406175259893",
+  appId: "1:406175259893:web:d9374f7605722bfabdb9bc"
+};
+let db = null;
+try {
+  if (window.firebase && FIREBASE_CONFIG.projectId) {
+    firebase.initializeApp(FIREBASE_CONFIG);
+    db = firebase.firestore();
+    try { db.settings({ ignoreUndefinedProperties: true }); } catch (e) {}
+  }
+} catch (e) { db = null; }
+const DOC_ESTADO = () => db.collection("crm").doc("estado");
+const _Icon = ({ d, size = 16, className = "" }) => React.createElement("svg", { viewBox: "0 0 24 24", width: size, height: size, fill: "none", stroke: "currentColor", strokeWidth: 2, strokeLinecap: "round", strokeLinejoin: "round", className, dangerouslySetInnerHTML: { __html: d } });
+const mk = d => p => React.createElement(_Icon, { d, ...p });
+const LayoutDashboard = mk('<rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/>');
+const Users = mk('<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>');
+const KanbanSquare = mk('<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M8 7v7"/><path d="M12 7v4"/><path d="M16 7v9"/>');
+const CalendarDays = mk('<rect width="18" height="18" x="3" y="4" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>');
+const CheckSquare = mk('<path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>');
+const UserCog = mk('<circle cx="18" cy="15" r="3"/><circle cx="9" cy="7" r="4"/><path d="M10 15H6a4 4 0 0 0-4 4v2"/><path d="m21.7 16.4-.9-.3M15.2 13.9l-.9-.3M16.6 18.7l.3-.9M19.1 12.2l.3-.9M19.6 18.7l-.4-1M16.8 12.3l-.4-1M14.3 16.6l1-.4M20.7 13.8l1-.4"/>');
+const Wallet = mk('<path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"/><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/>');
+const Lock = mk('<rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>');
+const Unlock = mk('<rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/>');
+const X = mk('<path d="M18 6 6 18M6 6l12 12"/>');
+const TrendingUp = mk('<polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/>');
+const TrendingDown = mk('<polyline points="22 17 13.5 8.5 8.5 13.5 2 7"/><polyline points="16 17 22 17 22 11"/>');
+const Plus = mk('<path d="M5 12h14M12 5v14"/>');
+const ShieldAlert = mk('<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="M12 8v4M12 16h.01"/>');
+const Target = mk('<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>');
+const Feather = mk('<path d="M20.24 12.24a6 6 0 0 0-8.49-8.49L5 10.5V19h8.5z"/><path d="M16 8 2 22M17.5 15H9"/>');
+const RotateCcw = mk('<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/>');
+const UserCheck = mk('<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="m16 11 2 2 4-4"/>');
+const UserX = mk('<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="m17 8 5 5M22 8l-5 5"/>');
+const CalendarClock = mk('<path d="M21 7.5V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h3.5"/><path d="M16 2v4M8 2v4M3 10h5"/><circle cx="16" cy="16" r="6"/><path d="M16 14v2l1 1"/>');
+const Tag = mk('<path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z"/><circle cx="7.5" cy="7.5" r=".5"/>');
+const Send = mk('<path d="M22 2 11 13"/><path d="M22 2 15 22 11 13 2 9z"/>');
+const Trash2 = mk('<path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M10 11v6M14 11v6"/>');
+const Power = mk('<path d="M12 2v10"/><path d="M18.36 6.64a9 9 0 1 1-12.73 0"/>');
+const Award = mk('<circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/>');
+const History = mk('<path d="M3 12a9 9 0 1 0 3-7.5L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l3 2"/>');
+
+/* =========================================================================
+   CRM FALCON — Protótipo (começa ZERADO). Senha sensível: clinicadajuliana
+   ========================================================================= */
+const LOGO = "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBAUEBAYFBQUGBgYHCQ4JCQgICRINDQoOFRIWFhUSFBQXGiEcFxgfGRQUHScdHyIjJSUlFhwpLCgkKyEkJST/2wBDAQYGBgkICREJCREkGBQYJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCT/wAARCACgAKADASIAAhEBAxEB/8QAGwABAAMBAQEBAAAAAAAAAAAAAAQFBgIDAQj/xAA7EAABBAEBBAYGCAYDAAAAAAAAAQIDBAURBiExURITIkFhcRQygZGhsQcWQlJyosHRFSMlM0OTwvDx/8QAFwEBAQEBAAAAAAAAAAAAAAAAAAIDAf/EACARAQEAAwABBAMAAAAAAAAAAAABAhExIQMSIkFRYXH/2gAMAwEAAhEDEQA/AP0mADJoAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAIeWytfDUZLdhV6LdzWpxe5eCIUlGtm9oYkuXMhLjq0najr1U0cre5Vcu/8A73ELa1y5TabGYhV/lIrXPTmrl3/lT4mzRERNERETuRO4ynyyv4iuRRO2dvQ9qltBkWP5TqkrV80PJ2by2EX+tU2zVtdPTKiaon4m9xPyz8nVnht0o3WoGIrZ6jdEc5F4OavNOR4LtVUc1WLQyivVNFjWo7Xy5C6nLo6taluvegbYrTMmifwc1T7ZtQUoXT2Zo4Ym8XvXRChptyKNkjxGGhxUUr+m6W07frzSNP8Awl1tm4OubayU0mSspvR0/qM/CzghUyt5HNRGkzGSy0cjsPXSCs1rl9Mst9fRPsM7/NSTsplJ8vhIrNlUWbpOY5UTTXRePuJ2TlSvjLcq7kZA9fyqVOwkSx7NV1X7b3u+On6Ezcy1t36aAAGqQAAAAAAAAAAAABibG/6SYel3dHT/AFqbYw+dX0Pb3H2F3Nk6rf72qbgy9PuX9Vl9A1XmoBqkAAFLtlY9G2buLror0SNPaqfpqSdnq3omDowqmipC1V813r8yn26VbLcbjGetaspqngm7/kahGo1Ea3cibk8jOec7VXj6ADRIAAAAAAAAAAAAAxf0iwOjXH5Bib43KxV8dzk+SmwgnbZgjnYurZWI9PampW7VY9clgrMTW6yMTrWJ4t3/AC1I2xF9LuAhYq6vrqsK+Sb2/BfgZTxnf2q+cV+AVmTztfHStrMjkt3XpqytCmrl8V+6nippbJ1OlmcySMib0pHtY3m5dE+JStq5/I9q1dixkS/4qrenJp4vXcnsPv1XxELXT3GS21YiudJbldJuTeq6cCfdbyO6UmRzNCXbSrPLajWrTi7L29tHP0VdE0113qnuLv6yPs7sdiMhb5Pczqme937FZsJTZM+/lupZG2eVWQtRuiNai6rpy4onsNcq68d5Hpy2b31WWuKzHR5mSytjIy1oolaqNqwJ0tF5q9eK+RZgGsmkAAOgAAAAAAAAAABjse36r7Vy0n9mlkO1Cq8EdruT2Kqt9qGxK3O4SHO0lryL0JGr0opUTex37cyM8d+Z2Oyu85kVxWLntNb0pGojY2r3vVdGp71OcLh2YquqvXrbk3bsTu3ue7v38k5GeuzZa1j/AOD5CpKl1j2vgtNTpRTOauqaqnBV4a8+Ohc19rMY9mlydKFlP7kFhFY5q9/HihMyly3XdXS5MzthkZJUiwVHt27ioj0T7DPHz+SKelva1lhVrYKB+Rsu3I9rV6pniqrxPfZ/Z52NfJevS+kZGffJJxRuvcn7/oMr7vjiSa81ZY6jHjKMFOH1Imo3X7y96+1dSSAaSaSAA6AAAAAAAAAAAAAAAAGqp3nEkMU2nWxxyacOm1F+Z2AOWsaxvRY1rW8mpoh0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB//2Q==";
+const MASTER_PASSWORD = "clinicadajuliana";
+const AREAS = ["Mentoria", "Pipeline", "Clientes", "Agenda", "Tarefas", "OrthoClub", "Equipe", "Financeiro"];
+const allAreas = v => Object.fromEntries(AREAS.map(a => [a, v]));
+const CARGOS = {
+  "CEO": { desc: "Vê e gerencia tudo na empresa. A comissão incide sobre o valor dos leads fechados pela pessoa.", areas: allAreas(true) },
+  "Mentor": { desc: "Controla métricas, metas e estratégia da clínica.", areas: allAreas(true) },
+  "Gestor": { desc: "Gerencia o dia a dia comercial e a equipe.", areas: { Mentoria: false, Pipeline: true, Clientes: true, Agenda: true, Tarefas: true, OrthoClub: true, Equipe: true, Financeiro: false } },
+  "Vendedor": { desc: "Trabalha o pipeline e a agenda. Vê só os leads em que é responsável.", areas: { Mentoria: false, Pipeline: true, Clientes: true, Agenda: true, Tarefas: true, OrthoClub: true, Equipe: false, Financeiro: false } },
+  "Recepção": { desc: "Cadastra leads, organiza a agenda e cuida do OrthoClub.", areas: { Mentoria: false, Pipeline: true, Clientes: true, Agenda: true, Tarefas: false, OrthoClub: true, Equipe: false, Financeiro: false } },
+  "Financeiro": { desc: "Cuida das entradas e saídas. Acesso restrito ao financeiro.", areas: { Mentoria: false, Pipeline: false, Clientes: true, Agenda: false, Tarefas: false, OrthoClub: true, Equipe: false, Financeiro: true } }
+};
+const CARGO_LIST = Object.keys(CARGOS);
+const ORIGENS = ["Facebook", "Instagram", "Google", "Indicação", "Orgânico"];
+const TRATAMENTOS = ["OrthoClub", "Implante", "Ortodontia", "Prótese", "Limpeza", "Outro"];
+const RESPONSAVEIS = ["Patrick Guimarães", "Recepção", "Dra. (dona)", "Falcon", "Equipe"];
+const ESTAGIOS = ["Lead Gerado", "Contatado", "Agendado", "Compareceu", "Fechou", "Reativação", "Esfriou", "No show", "Perdido"];
+const STAGE_COLOR = { "Fechou": "text-emerald-600", "Reativação": "text-amber-600", "Esfriou": "text-sky-600", "No show": "text-rose-500", "Perdido": "text-slate-400" };
+const brl = n => (n || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
+const DAY = 86400000;
+const fmtDT = ts => { const d = new Date(ts), p = n => String(n).padStart(2, "0"); return `${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()} às ${p(d.getHours())}:${p(d.getMinutes())}`; };
+const initials = nome => nome.split(" ").filter(Boolean).map(w => w[0]).slice(0, 2).join("").toUpperCase();
+const AVATAR = ["bg-violet-500", "bg-emerald-500", "bg-sky-500", "bg-rose-500", "bg-amber-500", "bg-indigo-500"];
+
+function inPeriodo(ts, periodo, de, ate) {
+  if (periodo === "geral") return true;
+  if (periodo === "mes") { const d = new Date(ts), n = new Date(); return d.getMonth() === n.getMonth() && d.getFullYear() === n.getFullYear(); }
+  if (de && ts < new Date(de + "T00:00").getTime()) return false;
+  if (ate && ts > new Date(ate + "T23:59").getTime()) return false;
+  return true;
+}
+const seedMembros = [{ id: 1, nome: "Administrador", email: "ceo@clinica.com", senha: "clinicadajuliana", cargo: "CEO", comissao: 0, ativo: true, criadoEm: Date.now(), areas: allAreas(true) }];
+const AREA_DE_TAB = { dashboard: "Mentoria", pipeline: "Pipeline", clientes: "Clientes", agenda: "Agenda", tarefas: "Tarefas", equipe: "Equipe", financeiro: "Financeiro", orthoclub: "OrthoClub" };
+const TAB_ORDER = ["dashboard", "pipeline", "clientes", "agenda", "tarefas", "equipe", "financeiro", "orthoclub", "auditoria"];
+const podeVerTab = (id, u) => { if (!u) return false; if (id === "auditoria") return u.cargo === "Mentor" || u.cargo === "CEO"; const a = AREA_DE_TAB[id]; return a ? !!(u.areas && u.areas[a]) : true; };
+const primeiraAba = u => TAB_ORDER.find(id => podeVerTab(id, u)) || "clientes";
+
+/* ========================================================================= */
+/* ---------- Login por perfil ---------- */
+function LoginScreen({ membros, onLogin }) {
+  const [email, setEmail] = useState("");
+  const [senha, setSenha] = useState("");
+  const [err, setErr] = useState("");
+  const entrar = () => {
+    const u = membros.find(m => m.ativo && (m.email || "").trim().toLowerCase() === email.trim().toLowerCase() && m.senha === senha);
+    if (u) onLogin(u); else setErr("E-mail ou senha inválidos, ou perfil inativo.");
+  };
+  return React.createElement("div", { className: "min-h-screen grid place-items-center bg-slate-900 p-4", style: { fontFamily: "ui-sans-serif, system-ui, sans-serif" } },
+    React.createElement("div", { className: "bg-white rounded-2xl w-full max-w-sm p-7 shadow-xl" },
+      React.createElement("div", { className: "flex items-center gap-2 mb-5" },
+        React.createElement("img", { src: LOGO, alt: "Logo jimenez", className: "w-11 h-11 rounded-md object-cover" }),
+        React.createElement("div", { className: "leading-tight" },
+          React.createElement("div", { className: "font-semibold tracking-tight" }, "jimenez Odontologia"),
+          React.createElement("div", { className: "text-[11px] text-slate-400" }, "Acesso da equipe"))),
+      React.createElement("label", { className: "text-xs text-slate-500 block mb-1" }, "E-mail"),
+      React.createElement("input", { value: email, onChange: e => { setEmail(e.target.value); setErr(""); }, onKeyDown: e => e.key === "Enter" && entrar(), placeholder: "email@clinica.com", className: "w-full border border-stone-300 rounded-lg px-3 py-2 text-sm mb-3" }),
+      React.createElement("label", { className: "text-xs text-slate-500 block mb-1" }, "Senha"),
+      React.createElement("input", { type: "password", value: senha, onChange: e => { setSenha(e.target.value); setErr(""); }, onKeyDown: e => e.key === "Enter" && entrar(), placeholder: "\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022", className: "w-full border border-stone-300 rounded-lg px-3 py-2 text-sm" }),
+      err && React.createElement("p", { className: "text-xs text-rose-600 mt-2" }, err),
+      React.createElement("button", { onClick: entrar, className: "w-full bg-slate-900 text-white rounded-lg py-2.5 text-sm font-medium mt-4" }, "Entrar"),
+      React.createElement("div", { className: "text-[11px] text-slate-400 mt-4 border-t border-stone-100 pt-3" }, "Primeiro acesso \u2014 e-mail: ", React.createElement("b", null, "ceo@clinica.com"), " \u00b7 senha: ", React.createElement("b", null, "clinicadajuliana"), ". Depois cadastre a equipe na aba Equipe (cada um com e-mail e senha) e troque essa senha.")));
+}
+
+function CRMFalcon() {
+  const [tab, setTab] = useState("dashboard");
+  const [periodo, setPeriodo] = useState("mes");
+  const [de, setDe] = useState("");
+  const [ate, setAte] = useState("");
+  const [clientes, setClientes] = useState([]);
+  const [tarefas, setTarefas] = useState([]);
+  const [abertoId, setAbertoId] = useState(null);
+  const [novoLead, setNovoLead] = useState(false);
+  const [metaFat, setMetaFat] = useState(0);
+  const [metaPac, setMetaPac] = useState(0);
+  const [custos, setCustos] = useState({ lead: 0, agend: 0, venda: 0 });
+  const [investimento, setInvestimento] = useState(0);
+  const [agendamentos, setAgendamentos] = useState([]);
+  const [materiais, setMateriais] = useState([]);
+  const addMaterial = m => setMateriais(xs => [...xs, { id: Date.now(), ...m }]);
+  const delMaterial = id => setMateriais(xs => xs.filter(x => x.id !== id));
+  const [novoAgendamento, setNovoAgendamento] = useState(false);
+  const [askPw, setAskPw] = useState(null);
+  const [usuario, setUsuario] = useState(null);
+  const operador = usuario ? usuario.nome : "";
+  const isMentor = !!usuario && (usuario.cargo === "Mentor" || usuario.cargo === "CEO");
+  const [auditoria, setAuditoria] = useState([]);
+  const [lancamentos, setLancamentos] = useState([]);
+  const logAudit = (tipo, texto) => setAuditoria(a => [{ ts: Date.now(), autor: operador, tipo, texto }, ...a].slice(0, 200));
+  const canEdit = true;
+  const requireMaster = onOk => setAskPw({ onOk });
+  const aberto = clientes.find(c => c.id === abertoId) || null;
+  const pushAtiv = (id, ativ, extra = {}) => setClientes(cs => cs.map(c => c.id === id ? { ...c, ...extra, atividades: [{ id: Date.now() + Math.random(), ts: Date.now(), ...ativ }, ...c.atividades] } : c));
+  const moverEtapa = (id, novo) => {
+    const c = clientes.find(x => x.id === id);
+    if (!c || c.estagio === novo) return;
+    pushAtiv(id, { autor: c.responsavel || "Sistema", tipo: "etapa", texto: `Movido para "${novo}"` }, { estagio: novo, estagioDesde: Date.now() });
+  };
+  const addComentario = (id, texto) => { const c = clientes.find(x => x.id === id); pushAtiv(id, { autor: c.responsavel || "Operador", tipo: "comentario", texto }); };
+  const setResponsavel = (id, resp) => setClientes(cs => cs.map(c => c.id === id ? { ...c, responsavel: resp } : c));
+  const soltarLead = id => pushAtiv(id, { autor: "Sistema", tipo: "sistema", texto: "Lead solto — voltou para a equipe" }, { responsavel: "Equipe" });
+  const setEtiquetas = (id, etiquetas) => setClientes(cs => cs.map(c => c.id === id ? { ...c, etiquetas } : c));
+  const updCliente = (id, patch) => setClientes(cs => cs.map(c => c.id === id ? { ...c, ...patch } : c));
+  const setSituacao = (id, situacao) => setClientes(cs => cs.map(c => c.id === id ? { ...c, situacao } : c));
+  const delLead = id => { setClientes(cs => cs.filter(c => c.id !== id)); setAbertoId(null); };
+  const delLeadSeguro = id => { const alvo = clientes.find(x => x.id === id); requireMaster(() => { logAudit("exclusão", "Excluiu " + (alvo ? alvo.nome : "registro " + id)); delLead(id); }); };
+  const addLancamento = l => { setLancamentos(xs => [{ id: Date.now() + Math.random(), ts: Date.now(), autor: operador, ...l }, ...xs]); logAudit("financeiro", l.tipo + " manual: " + l.descricao + " " + brl(l.valor)); };
+  const delLancamento = id => { const alvo = lancamentos.find(x => x.id === id); requireMaster(() => { logAudit("financeiro", "Excluiu lançamento: " + (alvo ? alvo.descricao + " " + brl(alvo.valor) : id)); setLancamentos(xs => xs.filter(x => x.id !== id)); }); };
+  const addLead = lead => {
+    const id = Math.max(0, ...clientes.map(c => c.id)) + 1;
+    setClientes(cs => [...cs, { id, estagio: "Lead Gerado", situacao: "—", valor: 0, valorEstimado: 0, responsavel: "Equipe", mensalidade: 0, mensStatus: "Em dia", limpezaPendente: false, beneficios: 0, estagioDesde: Date.now(), criadoEm: Date.now(), etiquetas: [], evolucao: "", retornos: [], outro: "", indicadoPor: "", indicou: [], atividades: [{ id: Date.now(), ts: Date.now(), autor: "Operador", tipo: "etapa", texto: `Lead criado em "Lead Gerado"` }], ...lead }]);
+  };
+  const addTarefa = t => setTarefas(ts => [...ts, { id: Date.now(), status: "Agendado", ...t }]);
+  const delTarefa = id => setTarefas(ts => ts.filter(t => t.id !== id));
+  const addAgendamento = a => {
+    setAgendamentos(xs => [...xs, { id: Date.now(), ...a }]);
+    const nome = (a.paciente || "").trim().toLowerCase();
+    const alvo = clientes.find(c => c.nome.trim().toLowerCase() === nome);
+    if (alvo) {
+      const dataBR = a.data ? a.data.split("-").reverse().join("/") : "";
+      const marca = `${a.tipo || "Compromisso"} — ${dataBR}${a.hora ? " " + a.hora : ""}`;
+      setClientes(cs => cs.map(c => c.id === alvo.id ? { ...c, retornos: [...(c.retornos || []), marca], atividades: [{ id: Date.now() + Math.random(), ts: Date.now(), autor: a.responsavel || "Operador", tipo: "sistema", texto: `Agendamento criado: ${marca}` }, ...(c.atividades || [])] } : c));
+    }
+  };
+  const delAgendamento = id => setAgendamentos(xs => xs.filter(x => x.id !== id));
+  const [membros, setMembros] = useState(seedMembros);
+  const [cargos, setCargos] = useState(() => Object.entries(CARGOS).map(([nome, v]) => ({ nome, desc: v.desc, areas: { ...v.areas }, fixo: nome === "CEO" })));
+  const addCargo = nome => { const n = (nome || "").trim(); if (!n) return; setCargos(xs => xs.some(x => x.nome.toLowerCase() === n.toLowerCase()) ? xs : [...xs, { nome: n, desc: "Cargo personalizado", fixo: false, areas: Object.fromEntries(AREAS.map(a => [a, a === "Clientes"])) }]); };
+  const updCargo = (nomeAntigo, novo) => { setCargos(xs => xs.map(x => x.nome === nomeAntigo ? novo : x)); setMembros(ms => ms.map(m => m.cargo === nomeAntigo ? { ...m, cargo: novo.nome, areas: { ...novo.areas } } : m)); };
+  const delCargo = nome => setCargos(xs => xs.filter(x => x.nome !== nome));
+  const [membroAberto, setMembroAberto] = useState(null);
+  const addMembro = m => { setMembros(ms => [...ms, { id: Date.now(), ativo: true, comissao: 0, criadoEm: Date.now(), ...m }]); setMembroAberto(null); };
+  const updMembro = m => { setMembros(ms => ms.map(x => x.id === m.id ? m : x)); setMembroAberto(null); };
+  const delMembro = id => { setMembros(ms => ms.filter(m => m.id !== id)); setMembroAberto(null); };
+  const cargoPadrao = cargos.find(x => !x.fixo) || cargos[0] || { nome: "Vendedor", areas: {} };
+  const membroSel = membroAberto === "novo" ? { id: null, nome: "", email: "", senha: "", cargo: cargoPadrao.nome, comissao: 0, ativo: true, areas: { ...cargoPadrao.areas } } : membros.find(m => m.id === membroAberto) || null;
+  const responsaveis = membros.filter(m => m.ativo).map(m => m.nome);
+  const carregado = useRef(false);
+  const [nuvem, setNuvem] = useState(db ? "conectando" : "offline");
+  useEffect(() => {
+    if (!db) { carregado.current = true; return; }
+    DOC_ESTADO().get().then(snap => {
+      if (snap.exists) {
+        const d = snap.data() || {};
+        if (Array.isArray(d.clientes)) setClientes(d.clientes);
+        if (Array.isArray(d.tarefas)) setTarefas(d.tarefas);
+        if (Array.isArray(d.membros) && d.membros.length) setMembros(d.membros);
+        if (Array.isArray(d.cargos) && d.cargos.length) setCargos(d.cargos);
+        if (Array.isArray(d.lancamentos)) setLancamentos(d.lancamentos);
+        if (Array.isArray(d.auditoria)) setAuditoria(d.auditoria);
+        if (Array.isArray(d.agendamentos)) setAgendamentos(d.agendamentos);
+        if (Array.isArray(d.materiais)) setMateriais(d.materiais);
+        if (typeof d.metaFat === "number") setMetaFat(d.metaFat);
+        if (typeof d.metaPac === "number") setMetaPac(d.metaPac);
+        if (d.custos) setCustos(d.custos);
+        if (typeof d.investimento === "number") setInvestimento(d.investimento);
+      }
+      carregado.current = true;
+      setNuvem("online");
+    }).catch(() => { carregado.current = true; setNuvem("erro"); });
+  }, []);
+  useEffect(() => {
+    if (!db || !carregado.current) return;
+    const dados = { clientes, tarefas, membros, cargos, lancamentos, auditoria, agendamentos, materiais, metaFat, metaPac, custos, investimento, _atualizado: Date.now() };
+    const t = setTimeout(() => { DOC_ESTADO().set(dados).then(() => setNuvem("online")).catch(() => setNuvem("erro")); }, 700);
+    return () => clearTimeout(t);
+  }, [clientes, tarefas, membros, cargos, lancamentos, auditoria, agendamentos, materiais, metaFat, metaPac, custos, investimento]);
+  if (!usuario) return React.createElement(LoginScreen, { membros, onLogin: u => { setUsuario(u); setTab(primeiraAba(u)); } });
+  const NAV = [
+    { id: "dashboard", label: "Mentoria", icon: LayoutDashboard },
+    { id: "pipeline", label: "Pipeline", icon: KanbanSquare },
+    { id: "clientes", label: "Clientes", icon: Users },
+    { id: "agenda", label: "Agenda", icon: CalendarDays },
+    { id: "tarefas", label: "Tarefas", icon: CheckSquare },
+    { id: "equipe", label: "Equipe", icon: UserCog },
+    { id: "financeiro", label: "Financeiro", icon: Wallet },
+    { id: "orthoclub", label: "OrthoClub", icon: Award },
+    { id: "auditoria", label: "Auditoria", icon: ShieldAlert }
+  ];
+  return React.createElement("div", { className: "min-h-screen bg-stone-100 text-slate-800 flex", style: { fontFamily: "ui-sans-serif, system-ui, sans-serif" } },
+    React.createElement("aside", { className: "w-60 shrink-0 bg-slate-900 text-slate-300 flex flex-col min-h-screen" },
+      React.createElement("div", { className: "px-5 py-5 flex items-center gap-2 border-b border-slate-800" },
+        React.createElement("img", { src: LOGO, alt: "Logo jimenez", className: "w-9 h-9 rounded-md object-cover border border-slate-700" }),
+        React.createElement("div", { className: "leading-tight" },
+          React.createElement("div", { className: "text-white font-semibold tracking-tight" }, "jimenez Odontologia"),
+          React.createElement("div", { className: "text-[11px] text-slate-400" }, "Clínica · gestão em números"))),
+      React.createElement("nav", { className: "flex-1 py-3" }, NAV.filter(n => podeVerTab(n.id, usuario)).map(n => {
+        const Icon = n.icon, active = tab === n.id;
+        return React.createElement("button", { key: n.id, onClick: () => setTab(n.id), className: `w-full flex items-center gap-3 px-5 py-2.5 text-sm transition-colors ${active ? "bg-slate-800 text-white border-l-2 border-amber-500" : "hover:bg-slate-800/50 border-l-2 border-transparent"}` },
+          React.createElement(Icon, { size: 17 }), React.createElement("span", { className: "flex-1 text-left" }, n.label));
+      })),
+      React.createElement("div", { className: "px-3 py-3 border-t border-slate-800" },
+        React.createElement("button", { onClick: () => { if (confirm("Sair da conta?")) setUsuario(null); }, className: "w-full flex items-center gap-3 px-2 py-2 rounded-lg text-sm text-slate-300 hover:bg-slate-800 transition-colors" }, React.createElement(Power, { size: 16 }), " ", React.createElement("span", null, "Sair")),
+        React.createElement("div", { className: "px-2 pt-2 text-[11px] text-slate-500" }, "Protótipo · começa zerado"))),
+    React.createElement("div", { className: "flex-1 flex flex-col min-w-0" },
+      React.createElement("header", { className: "bg-white border-b border-stone-200 px-6 py-3 flex items-center gap-4 flex-wrap" },
+        React.createElement("h1", { className: "text-lg font-semibold tracking-tight" }, NAV.find(n => n.id === tab)?.label),
+        React.createElement("div", { className: "flex-1" }),
+        tab === "dashboard" && periodo === "periodo" && React.createElement("div", { className: "flex items-center gap-1 text-xs" },
+          React.createElement("input", { type: "date", value: de, onChange: e => setDe(e.target.value), className: "border border-stone-300 rounded-lg px-2 py-1.5" }),
+          React.createElement("span", { className: "text-slate-400" }, "até"),
+          React.createElement("input", { type: "date", value: ate, onChange: e => setAte(e.target.value), className: "border border-stone-300 rounded-lg px-2 py-1.5" })),
+        React.createElement("div", { className: "flex items-center gap-1 bg-stone-100 rounded-lg p-1 text-xs" }, [["mes", "Mês"], ["geral", "Geral"], ["periodo", "Período"]].map(([k, l]) => React.createElement("button", { key: k, onClick: () => setPeriodo(k), className: `px-3 py-1.5 rounded-md transition ${periodo === k ? "bg-white shadow-sm font-medium text-slate-900" : "text-slate-500"}` }, l))),
+        React.createElement("span", { className: `text-[10px] rounded-full px-2 py-0.5 ${nuvem === "online" ? "bg-emerald-100 text-emerald-700" : nuvem === "erro" ? "bg-rose-100 text-rose-700" : nuvem === "offline" ? "bg-stone-200 text-slate-500" : "bg-amber-100 text-amber-700"}` }, nuvem === "online" ? "☁ salvo" : nuvem === "erro" ? "⚠ erro" : nuvem === "offline" ? "offline" : "☁ ..."),
+        React.createElement("div", { className: "flex items-center gap-2" },
+          React.createElement("div", { className: "w-7 h-7 rounded-full bg-amber-500 grid place-items-center text-[11px] font-bold text-slate-900" }, initials(usuario.nome || "?")),
+          React.createElement("div", { className: "leading-tight" },
+            React.createElement("div", { className: "text-sm font-medium text-slate-700" }, usuario.nome),
+            React.createElement("div", { className: "text-[10px] text-slate-400" }, usuario.cargo)))),
+      React.createElement("main", { className: "flex-1 overflow-auto p-6" },
+        tab === "dashboard" && React.createElement(Dashboard, { canEdit: isMentor, clientes, tarefas, periodo, de, ate, metaFat, setMetaFat, metaPac, setMetaPac, custos, setCustos, investimento, setInvestimento, materiais, onAddMaterial: addMaterial, onDelMaterial: delMaterial, onDelTarefa: delTarefa, onAddTarefa: addTarefa, responsaveis }),
+        tab === "pipeline" && React.createElement(Pipeline, { clientes, onOpen: setAbertoId, onNew: () => setNovoLead(true) }),
+        tab === "clientes" && React.createElement(Clientes, { clientes, onOpen: setAbertoId, onNew: () => setNovoLead(true), canEdit, onDel: delLeadSeguro }),
+        tab === "agenda" && React.createElement(Agenda, { clientes, setSituacao, requireMaster, agendamentos, onDel: delAgendamento, onNew: () => setNovoAgendamento(true), responsaveis }),
+        tab === "tarefas" && React.createElement(Tarefas, { tarefas, canEdit, onAdd: addTarefa, onDel: delTarefa, responsaveis }),
+        tab === "equipe" && React.createElement(Equipe, { membros, onOpen: setMembroAberto, onNew: () => setMembroAberto("novo"), cargos, onAddCargo: addCargo, onUpdCargo: updCargo, onDelCargo: delCargo, podeCargos: isMentor }),
+        tab === "financeiro" && React.createElement(Financeiro, { clientes, lancamentos, onAdd: addLancamento, onDel: delLancamento }),
+        tab === "auditoria" && React.createElement(Auditoria, { clientes, auditoria }),
+        tab === "orthoclub" && React.createElement(OrthoClub, { clientes, updCliente, onAddMembro: addLead, canEdit, periodo, de, ate, operador }))),
+    aberto && React.createElement(ClienteCard, { cliente: aberto, canEdit, onClose: () => setAbertoId(null), requireMaster, moverEtapa, addComentario, setResponsavel, soltarLead, setEtiquetas, updCliente, onDelete: delLeadSeguro }),
+    membroSel && React.createElement(MembroCard, { membro: membroSel, isNew: membroAberto === "novo", onClose: () => setMembroAberto(null), onCreate: addMembro, onUpdate: updMembro, onDelete: delMembro, cargos }),
+    novoLead && React.createElement(NovoLeadModal, { onClose: () => setNovoLead(false), onAdd: l => { addLead(l); setNovoLead(false); } }),
+    novoAgendamento && React.createElement(NovoAgendamentoModal, { onClose: () => setNovoAgendamento(false), onAdd: a => { addAgendamento(a); setNovoAgendamento(false); }, responsaveis, clientes }),
+    askPw && React.createElement(PasswordModal, { onClose: () => setAskPw(null), onOk: () => { askPw.onOk(); setAskPw(null); } }));
+}
+
+/* ---------- Dashboard / Mentoria ---------- */
+function Dashboard({ canEdit, clientes, tarefas, periodo, de, ate, metaFat, setMetaFat, metaPac, setMetaPac, custos, setCustos, investimento, setInvestimento, materiais, onAddMaterial, onDelMaterial, onDelTarefa, onAddTarefa, responsaveis }) {
+  const mensal = periodo !== "geral";
+  const labelP = periodo === "mes" ? "do mês" : "(período)";
+  const cF = useMemo(() => clientes.filter(c => inPeriodo(c.criadoEm, periodo, de, ate)), [clientes, periodo, de, ate]);
+  const fechados = cF.filter(c => c.estagio === "Fechou");
+  const realizado = fechados.reduce((s, c) => s + c.valor, 0);
+  const compareceram = cF.filter(c => c.situacao === "Compareceu").length;
+  const taxaFech = compareceram ? Math.round(fechados.length / compareceram * 100) : 0;
+  const marketing = ORIGENS.map(o => ({ c: o, v: cF.filter(x => x.origem === o).length }));
+  const mktMax = Math.max(1, ...marketing.map(x => x.v));
+  const totalLeads = marketing.reduce((s, x) => s + x.v, 0);
+  const agendados = cF.filter(c => c.situacao && c.situacao !== "—").length;
+  const faltaram = cF.filter(c => c.situacao === "No-show").length;
+  const reagendados = cF.filter(c => c.situacao === "Reagendado").length;
+  const taxaFalta = agendados ? Math.round(faltaram / agendados * 100) : 0;
+  const reativados = cF.filter(c => c.estagio === "Reativação");
+  const fatReativ = reativados.reduce((s, c) => s + c.valor, 0);
+  const difFat = metaFat - realizado;
+  return React.createElement("div", { className: "space-y-6 max-w-6xl" },
+    React.createElement("div", { className: `flex items-center gap-2 text-xs rounded-lg px-3 py-2 border ${canEdit ? "text-emerald-800 bg-emerald-50 border-emerald-200" : "text-amber-800 bg-amber-50 border-amber-200"}` },
+      React.createElement(ShieldAlert, { size: 14 }),
+      React.createElement("span", null, "Esta aba ", React.createElement("b", null, "Mentoria"), " é controlada pela Falcon: ", React.createElement("b", null, "somente o cargo \"Mentor\""), " pode alterar metas, custos, investimento e demais informações daqui. ", canEdit ? "Você está como Mentor — pode editar." : "Os outros perfis (inclusive a dona da clínica) têm acesso somente leitura.")),
+    mensal && React.createElement("div", { className: "grid grid-cols-1 sm:grid-cols-3 gap-4" },
+      React.createElement(KpiMeta, { title: `Faturamento ${labelP}`, real: realizado, meta: metaFat, setMeta: setMetaFat, canEdit, money: true }),
+      React.createElement(KpiMeta, { title: "Pacientes novos", real: cF.length, meta: metaPac, setMeta: setMetaPac, canEdit }),
+      React.createElement(KpiSimple, { title: "Taxa de fechamento", value: `${taxaFech}%` })),
+    React.createElement("div", { className: "grid lg:grid-cols-2 gap-6" },
+      React.createElement(Card, { title: "Marketing · leads por canal", live: true },
+        React.createElement("div", { className: "space-y-2" }, marketing.map(c => React.createElement("div", { key: c.c, className: "flex items-center gap-3" },
+          React.createElement("span", { className: "w-20 text-xs text-slate-600" }, c.c),
+          React.createElement("div", { className: "flex-1 h-4 bg-stone-100 rounded" }, React.createElement("div", { className: "h-4 rounded bg-slate-700 transition-all", style: { width: `${c.v / mktMax * 100}%` } })),
+          React.createElement("span", { className: "w-6 text-xs font-semibold text-right" }, c.v)))),
+        mensal && React.createElement("div", { className: "grid grid-cols-3 gap-3 mt-4 pt-4 border-t border-stone-100 text-center" },
+          React.createElement(CustoEdit, { label: "Custo/Lead", value: custos.lead, onChange: v => setCustos({ ...custos, lead: v }), canEdit }),
+          React.createElement(CustoEdit, { label: "Custo/Agend.", value: custos.agend, onChange: v => setCustos({ ...custos, agend: v }), canEdit }),
+          React.createElement(CustoEdit, { label: "Custo/Venda", value: custos.venda, onChange: v => setCustos({ ...custos, venda: v }), canEdit })),
+        React.createElement("p", { className: "text-[11px] text-slate-400 mt-3" }, "Total: ", totalLeads, " leads.")),
+      React.createElement(Card, { title: "No-show", live: true },
+        React.createElement(Row, { l: "Agendados", v: agendados }),
+        React.createElement(Row, { l: "Compareceram", v: compareceram }),
+        React.createElement(Row, { l: "Faltaram", v: faltaram }),
+        React.createElement(Row, { l: "Reagendados", v: reagendados }),
+        React.createElement(Row, { l: "Taxa de falta", v: `${taxaFalta}%`, strong: true }),
+        React.createElement("div", { className: "mt-4 pt-4 border-t border-stone-100 space-y-2" },
+          React.createElement(BarLine, { label: "Compareceram", v: compareceram, max: agendados, color: "bg-emerald-500" }),
+          React.createElement(BarLine, { label: "Faltaram", v: faltaram, max: agendados, color: "bg-rose-500" }),
+          React.createElement(BarLine, { label: "Reagendados", v: reagendados, max: agendados, color: "bg-amber-500" })))),
+    React.createElement("div", { className: "grid lg:grid-cols-2 gap-6" },
+      React.createElement(Card, { title: "Funil comercial" }, [["Leads Gerados", "Lead Gerado"], ["Contatados", "Contatado"], ["Agendados", "Agendado"], ["Compareceram", "Compareceu"], ["Fecharam", "Fechou"]].map(([l, est]) => React.createElement(Row, { key: l, l, v: cF.filter(c => c.estagio === est).length }))),
+      React.createElement(Card, { title: "Reativação", live: true },
+        React.createElement(Row, { l: "Pacientes reativados", v: reativados.length }),
+        React.createElement(Row, { l: "Faturamento gerado", v: brl(fatReativ), strong: true }),
+        React.createElement("p", { className: "text-[11px] text-slate-400 mt-2" }, "Atualiza quando um paciente entra no estágio ", React.createElement("b", null, "Reativação"), "."))),
+    mensal && React.createElement(Card, { title: `Meta x Realizado (faturamento) ${labelP}` },
+      React.createElement("div", { className: "flex items-center gap-6 flex-wrap" },
+        React.createElement("div", null, React.createElement("div", { className: "text-xs text-slate-500" }, "Meta"), canEdit ? React.createElement("input", { type: "number", value: metaFat, onChange: e => setMetaFat(Number(e.target.value)), className: "text-2xl font-bold w-36 border border-stone-300 rounded px-2" }) : React.createElement("div", { className: "text-2xl font-bold" }, brl(metaFat))),
+        React.createElement("div", null, React.createElement("div", { className: "text-xs text-slate-500" }, "Realizado"), React.createElement("div", { className: "text-2xl font-bold" }, brl(realizado))),
+        React.createElement("div", { className: `flex items-center gap-1 ${difFat > 0 ? "text-rose-600" : "text-emerald-600"}` }, difFat > 0 ? React.createElement(TrendingDown, { size: 20 }) : React.createElement(TrendingUp, { size: 20 }), React.createElement("div", null, React.createElement("div", { className: "text-xs opacity-70" }, difFat > 0 ? "Faltam" : "Acima da meta"), React.createElement("div", { className: "text-2xl font-bold" }, brl(Math.abs(difFat))))))),
+    mensal && React.createElement(Card, { title: `Investimento x Retorno ${labelP}`, live: true },
+      React.createElement("div", { className: "grid grid-cols-1 sm:grid-cols-3 gap-4 items-stretch" },
+        React.createElement("div", { className: "bg-stone-50 border border-stone-200 rounded-lg p-4" }, React.createElement("div", { className: "text-xs text-slate-500 mb-1" }, "Investido (tráfego)"), canEdit ? React.createElement("div", { className: "flex items-center gap-1" }, React.createElement("span", { className: "text-lg font-bold text-slate-400" }, "R$"), React.createElement("input", { type: "number", value: investimento, onChange: e => setInvestimento(Number(e.target.value)), className: "text-2xl font-bold w-28 border border-stone-300 rounded px-2" })) : React.createElement("div", { className: "text-2xl font-bold" }, brl(investimento)), React.createElement("div", { className: "text-[11px] text-slate-400 mt-1" }, "Verba do mês")),
+        React.createElement("div", { className: "bg-stone-50 border border-stone-200 rounded-lg p-4" }, React.createElement("div", { className: "text-xs text-slate-500 mb-1" }, "Retorno (faturamento)"), React.createElement("div", { className: "text-2xl font-bold text-emerald-600" }, brl(realizado)), React.createElement("div", { className: "text-[11px] text-slate-400 mt-1" }, "Contratos fechados no mês")),
+        React.createElement("div", { className: `rounded-lg p-4 border ${realizado - investimento >= 0 ? "bg-emerald-50 border-emerald-200" : "bg-rose-50 border-rose-200"}` }, React.createElement("div", { className: "text-xs text-slate-500 mb-1" }, "Resultado"), React.createElement("div", { className: `text-2xl font-bold flex items-center gap-1 ${realizado - investimento >= 0 ? "text-emerald-700" : "text-rose-700"}` }, realizado - investimento >= 0 ? React.createElement(TrendingUp, { size: 20 }) : React.createElement(TrendingDown, { size: 20 }), brl(realizado - investimento)), React.createElement("div", { className: "text-[11px] text-slate-500 mt-1" }, investimento > 0 ? React.createElement(React.Fragment, null, "ROAS ", React.createElement("b", null, (realizado / investimento).toFixed(2), "x"), " · ROI ", React.createElement("b", null, Math.round((realizado - investimento) / investimento * 100), "%")) : "Informe o investimento para ver o ROI"))),
+      React.createElement("p", { className: "text-[11px] text-slate-400 mt-3" }, "Cada R$ 1 investido ", investimento > 0 ? `retornou R$ ${(realizado / investimento).toFixed(2)} em faturamento.` : "— defina a verba para calcular.")),
+    React.createElement(Card, { title: "Materiais — conteúdos de estudo da mentoria" },
+      !canEdit && React.createElement("p", { className: "text-xs text-slate-400 mb-3" }, "Materiais selecionados pela Falcon. Clique para abrir o conteúdo."),
+      materiais.length === 0 && React.createElement("div", { className: "text-sm text-slate-400 py-4 text-center" }, "Nenhum material ainda.", canEdit ? " Adicione abaixo." : ""),
+      React.createElement("div", { className: "space-y-2" }, materiais.map(m => React.createElement("div", { key: m.id, className: "flex items-center justify-between gap-3 border border-stone-200 rounded-lg px-3 py-2.5 hover:border-amber-300 transition" },
+        React.createElement("a", { href: m.link, target: "_blank", rel: "noopener noreferrer", className: "flex-1 min-w-0" }, React.createElement("div", { className: "text-sm font-medium text-slate-800 truncate" }, m.titulo), React.createElement("div", { className: "text-xs text-amber-600 truncate" }, m.link)),
+        React.createElement("a", { href: m.link, target: "_blank", rel: "noopener noreferrer", className: "text-xs bg-slate-900 text-white rounded-lg px-3 py-1.5 whitespace-nowrap" }, "Abrir →"),
+        canEdit && React.createElement("button", { onClick: () => onDelMaterial(m.id), className: "text-rose-500 hover:text-rose-700" }, React.createElement(Trash2, { size: 15 }))))),
+      canEdit && React.createElement(MaterialForm, { onAdd: onAddMaterial })),
+    React.createElement(Card, { title: "Tarefas da Falcon" }, React.createElement(TarefaTable, { tarefas, canEdit, onDel: onDelTarefa, onAdd: onAddTarefa, responsaveis })));
+}
+
+/* ---------- Pipeline ---------- */
+function Pipeline({ clientes, onOpen, onNew }) {
+  return React.createElement("div", null,
+    React.createElement("div", { className: "flex justify-end mb-3" }, React.createElement("button", { onClick: onNew, className: "flex items-center gap-1 text-sm bg-slate-900 text-white rounded-lg px-3 py-2" }, React.createElement(Plus, { size: 16 }), " Novo lead")),
+    React.createElement("div", { className: "flex gap-4 overflow-x-auto pb-4" }, ESTAGIOS.filter(est => est !== "Fechou").map(est => {
+    const itens = clientes.filter(c => c.estagio === est);
+    const head = STAGE_COLOR[est] || "text-slate-500";
+    return React.createElement("div", { key: est, className: "w-60 shrink-0" },
+      React.createElement("div", { className: "flex items-center justify-between mb-2 px-1" }, React.createElement("span", { className: `text-xs font-semibold uppercase tracking-wide ${head}` }, est), React.createElement("span", { className: "text-xs bg-stone-200 rounded-full px-2 py-0.5" }, itens.length)),
+      React.createElement("div", { className: "space-y-2" }, itens.map(c => React.createElement("button", { key: c.id, onClick: () => onOpen(c.id), className: "w-full text-left bg-white border border-stone-200 rounded-lg p-3 shadow-sm hover:border-amber-300 hover:shadow transition" },
+        React.createElement("div", { className: "flex items-center gap-2" }, React.createElement("div", { className: `w-6 h-6 rounded ${AVATAR[c.id % AVATAR.length]} grid place-items-center text-[10px] font-bold text-white shrink-0` }, initials(c.nome)), React.createElement("span", { className: "font-medium text-sm truncate" }, c.nome)),
+        React.createElement("div", { className: "text-xs text-slate-500 mt-1" }, c.tratamento, " · ", c.origem),
+        React.createElement("div", { className: "flex items-center justify-between mt-2" }, React.createElement("span", { className: "text-xs font-semibold text-slate-700" }, brl(c.valorEstimado)), React.createElement("span", { className: "text-[10px] text-slate-400" }, Math.floor((Date.now() - c.estagioDesde) / DAY), "d")))),
+        itens.length === 0 && React.createElement("div", { className: "text-xs text-slate-300 px-1 py-4 text-center" }, "vazio")));
+  })));
+}
+
+/* ---------- Painel do lead ---------- */
+function ClienteCard({ cliente: c, canEdit, onClose, requireMaster, moverEtapa, addComentario, setResponsavel, soltarLead, setEtiquetas, updCliente, onDelete }) {
+  const [aba, setAba] = useState("negociacao");
+  const [coment, setComent] = useState("");
+  const [novaTag, setNovaTag] = useState("");
+  const [addTag, setAddTag] = useState(false);
+  const [novoIndicado, setNovoIndicado] = useState("");
+  const dias = Math.floor((Date.now() - c.estagioDesde) / DAY);
+  const enviar = () => { if (coment.trim()) { addComentario(c.id, coment.trim()); setComent(""); } };
+  const confirmarTag = () => { if (novaTag.trim()) { setEtiquetas(c.id, [...c.etiquetas, novaTag.trim()]); setNovaTag(""); setAddTag(false); } };
+  const terminar = () => requireMaster(() => alert("Procedimento CONCLUÍDO (liberado pela senha)."));
+  const excluir = () => { if (confirm(`Excluir o lead "${c.nome}"? Essa ação não volta.`)) onDelete(c.id); };
+  const L = ({ children }) => React.createElement("div", { className: "text-[11px] font-semibold uppercase tracking-wide text-slate-400 mb-1" }, children);
+  const sel = "w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100";
+  return React.createElement("div", { className: "fixed inset-0 bg-black/60 flex justify-end z-50", onClick: onClose },
+    React.createElement("div", { className: "bg-slate-900 text-slate-100 w-full max-w-md h-full overflow-auto", onClick: e => e.stopPropagation() },
+      React.createElement("div", { className: "px-5 py-4 border-b border-slate-800 flex items-start gap-3" },
+        React.createElement("div", { className: `w-10 h-10 rounded-lg ${AVATAR[c.id % AVATAR.length]} grid place-items-center font-bold text-white` }, initials(c.nome)),
+        React.createElement("div", { className: "flex-1 min-w-0" }, React.createElement("h2", { className: "font-semibold leading-tight truncate" }, c.nome), React.createElement("p", { className: "text-xs text-slate-400 mt-0.5" }, c.estagio, " · ", dias, "d no estágio · ", c.origem)),
+        React.createElement("button", { onClick: onClose, className: "text-slate-400 hover:text-white bg-slate-800 rounded-lg p-1.5" }, React.createElement(X, { size: 16 }))),
+      React.createElement("div", { className: "flex gap-1 px-5 pt-3 text-sm" }, [["negociacao", "Negociação"], ["clinico", "Clínico"], ["agenda", "Agenda"]].map(([k, l]) => React.createElement("button", { key: k, onClick: () => setAba(k), className: `px-3 py-1.5 rounded-lg ${aba === k ? "bg-slate-800 text-amber-400 font-medium" : "text-slate-400"}` }, l))),
+      React.createElement("div", { className: "p-5 space-y-5" },
+        aba === "negociacao" && React.createElement(React.Fragment, null,
+          React.createElement("button", { onClick: () => soltarLead(c.id), className: "w-full flex items-center justify-center gap-2 border border-slate-700 rounded-lg py-2.5 text-sm text-slate-200 hover:bg-slate-800" }, React.createElement(Unlock, { size: 14 }), " Soltar lead (volta para a equipe)"),
+          React.createElement("div", { className: "grid grid-cols-2 gap-4" }, React.createElement("div", null, React.createElement(L, null, "Telefone"), React.createElement("div", { className: "text-sm font-medium" }, c.tel || "—")), React.createElement("div", null, React.createElement(L, null, "Origem"), React.createElement("div", { className: "text-sm font-medium" }, c.origem))),
+          React.createElement("div", { className: "grid grid-cols-2 gap-4" }, React.createElement("div", null, React.createElement(L, null, "Valor estimado"), React.createElement("div", { className: "flex items-center gap-1" }, React.createElement("span", { className: "text-sm text-slate-400" }, "R$"), React.createElement("input", { type: "number", value: c.valorEstimado, onChange: e => updCliente(c.id, { valorEstimado: Number(e.target.value) }), className: "w-24 bg-slate-800 border border-slate-700 rounded px-2 py-1 text-sm" }))), React.createElement("div", null, React.createElement(L, null, "Dias no estágio"), React.createElement("div", { className: "text-sm font-medium" }, dias, " dia(s)"))),
+          React.createElement("div", null, React.createElement(L, null, "Valor fechado (R$)"), React.createElement("div", { className: "flex items-center gap-1" }, React.createElement("span", { className: "text-sm text-slate-400" }, "R$"), React.createElement("input", { type: "number", value: c.valor || 0, onChange: e => updCliente(c.id, { valor: Number(e.target.value) }), className: "w-32 bg-slate-800 border border-slate-700 rounded px-2 py-1 text-sm" })), React.createElement("p", { className: "text-[11px] text-slate-500 mt-1" }, "Vai pro Financeiro e pro faturamento quando o cliente fecha.")),
+          React.createElement("div", null, React.createElement(L, null, "Responsável"), React.createElement("select", { value: c.responsavel, onChange: e => setResponsavel(c.id, e.target.value), className: sel }, RESPONSAVEIS.map(rsp => React.createElement("option", { key: rsp }, rsp)))),
+          React.createElement("div", null, React.createElement(L, null, "Mover para etapa"), React.createElement("select", { value: c.estagio, onChange: e => { const novo = e.target.value; if (novo === "Fechou") { const sug = c.valor || c.valorEstimado || 0; const val = prompt("Valor da venda fechada (R$):", sug); if (val !== null && val !== "") updCliente(c.id, { valor: Number(val) || 0 }); } moverEtapa(c.id, novo); }, className: sel }, ESTAGIOS.map(e => React.createElement("option", { key: e }, e)))),
+          React.createElement("div", null, React.createElement(L, null, "Etiquetas"), React.createElement("div", { className: "flex gap-1.5 flex-wrap items-center" }, c.etiquetas.map(t => React.createElement("span", { key: t, className: "text-xs bg-slate-800 border border-slate-700 rounded-full px-2 py-1 flex items-center gap-1" }, t, React.createElement("button", { onClick: () => setEtiquetas(c.id, c.etiquetas.filter(x => x !== t)), className: "text-slate-500 hover:text-rose-400" }, React.createElement(X, { size: 11 })))), addTag ? React.createElement("input", { autoFocus: true, value: novaTag, onChange: e => setNovaTag(e.target.value), onKeyDown: e => e.key === "Enter" && confirmarTag(), onBlur: confirmarTag, placeholder: "nome", className: "text-xs bg-slate-800 border border-slate-700 rounded-full px-2 py-1 w-20" }) : React.createElement("button", { onClick: () => setAddTag(true), className: "text-xs border border-dashed border-slate-600 rounded-full px-2 py-1 text-slate-400 flex items-center gap-1" }, React.createElement(Tag, { size: 11 }), " etiqueta"))),
+          React.createElement("div", null, React.createElement(L, null, "⭐ Indicado por"), React.createElement("input", { value: c.indicadoPor || "", onChange: e => updCliente(c.id, { indicadoPor: e.target.value }), placeholder: "Nome de quem indicou (se houver)", className: sel }), React.createElement("div", { className: "mt-3" }, React.createElement(L, null, "Indicou alguém? (adicione os nomes)"), React.createElement("div", { className: "flex gap-1.5 flex-wrap items-center mb-2" }, (c.indicou || []).map((nome, i) => React.createElement("span", { key: i, className: "text-xs bg-slate-800 border border-slate-700 rounded-full px-2 py-1 flex items-center gap-1" }, nome, React.createElement("button", { onClick: () => updCliente(c.id, { indicou: (c.indicou || []).filter((_, j) => j !== i) }), className: "text-slate-500 hover:text-rose-400" }, React.createElement(X, { size: 11 })))), (c.indicou || []).length === 0 && React.createElement("span", { className: "text-xs text-slate-500" }, "Ninguém ainda")), React.createElement("div", { className: "flex gap-2" }, React.createElement("input", { value: novoIndicado, onChange: e => setNovoIndicado(e.target.value), onKeyDown: e => { if (e.key === "Enter" && novoIndicado.trim()) { updCliente(c.id, { indicou: [...(c.indicou || []), novoIndicado.trim()] }); setNovoIndicado(""); } }, placeholder: "Nome do indicado", className: "flex-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm" }), React.createElement("button", { onClick: () => { if (novoIndicado.trim()) { updCliente(c.id, { indicou: [...(c.indicou || []), novoIndicado.trim()] }); setNovoIndicado(""); } }, className: "bg-amber-500 text-slate-900 font-medium rounded-lg px-3 text-sm" }, "Add")))), 
+          React.createElement("div", null, React.createElement(L, null, "Atividade & comentários"), React.createElement("div", { className: "flex gap-2" }, React.createElement("input", { value: coment, onChange: e => setComent(e.target.value), onKeyDown: e => e.key === "Enter" && enviar(), placeholder: "Escrever comentário...", className: "flex-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm" }), React.createElement("button", { onClick: enviar, className: "bg-amber-500 text-slate-900 font-medium rounded-lg px-3 text-sm flex items-center gap-1" }, React.createElement(Send, { size: 14 }), " Enviar")), React.createElement("div", { className: "mt-4 space-y-3" }, c.atividades.map(a => React.createElement("div", { key: a.id, className: "flex gap-3" }, React.createElement("div", { className: `w-2.5 h-2.5 rounded-full mt-1 shrink-0 ${a.tipo === "comentario" ? "bg-sky-400" : a.tipo === "sistema" ? "bg-slate-500" : "bg-amber-400"}` }), React.createElement("div", { className: "min-w-0" }, React.createElement("div", { className: "text-[11px] text-slate-400 uppercase tracking-wide" }, fmtDT(a.ts), " · ", a.autor), React.createElement("div", { className: "text-sm mt-0.5 flex items-center gap-2 flex-wrap" }, a.tipo === "etapa" && React.createElement("span", { className: "text-[10px] bg-slate-700 text-slate-300 rounded px-1.5 py-0.5" }, "etapa"), a.tipo === "comentario" && React.createElement("span", { className: "text-[10px] bg-sky-900 text-sky-300 rounded px-1.5 py-0.5" }, "comentário"), React.createElement("span", null, a.texto))))))),
+          canEdit && React.createElement("button", { onClick: excluir, className: "w-full flex items-center justify-center gap-2 text-sm text-rose-400 border border-rose-900 rounded-lg py-2.5 hover:bg-rose-950/40" }, React.createElement(Trash2, { size: 14 }), " Excluir lead")),
+        aba === "clinico" && React.createElement("div", { className: "space-y-4" },
+          React.createElement("div", null, React.createElement(L, null, "Tratamento"), React.createElement("select", { value: c.tratamento, onChange: e => updCliente(c.id, { tratamento: e.target.value }), className: sel }, TRATAMENTOS.map(t => React.createElement("option", { key: t }, t))), c.tratamento === "Outro" && React.createElement("input", { value: c.outro, onChange: e => updCliente(c.id, { outro: e.target.value }), placeholder: "Especifique", className: `mt-2 ${sel}` })),
+          React.createElement("div", null, React.createElement(L, null, "Evolução do paciente"), React.createElement("textarea", { value: c.evolucao, onChange: e => updCliente(c.id, { evolucao: e.target.value }), rows: 6, className: sel, placeholder: "Registre a evolução..." }))),
+        aba === "agenda" && React.createElement("div", { className: "space-y-4" },
+          React.createElement("div", null, React.createElement(L, null, "Situação"), React.createElement("div", { className: "text-sm font-medium" }, c.situacao)),
+          React.createElement("div", null, React.createElement(L, null, "Retornos / marcações"), c.retornos.length ? c.retornos.map((rr, i) => React.createElement("div", { key: i, className: "text-sm bg-slate-800 rounded-lg px-3 py-2 border border-slate-700 mb-1.5" }, rr)) : React.createElement("div", { className: "text-sm text-slate-500" }, "Sem retornos.")),
+          React.createElement("div", { className: "flex gap-2 flex-wrap" }, React.createElement("button", { onClick: () => updCliente(c.id, { retornos: [...c.retornos, "Novo retorno (a definir)"] }), className: "flex items-center gap-1 text-sm bg-slate-100 text-slate-900 rounded-lg px-3 py-2" }, React.createElement(Plus, { size: 15 }), " Agendar retorno"), React.createElement("button", { onClick: terminar, className: "flex items-center gap-1 text-sm border border-amber-500/50 text-amber-400 rounded-lg px-3 py-2" }, React.createElement(Lock, { size: 14 }), " Término de procedimento")),
+          React.createElement("p", { className: "text-xs text-slate-500" }, "\u201CTérmino de procedimento\u201D exige a senha da Juliana.")))));
+}
+
+/* ---------- Clientes ---------- */
+function Clientes({ clientes, onOpen, onNew, canEdit, onDel }) {
+  const fechados = clientes.filter(c => c.estagio === "Fechou");
+  const linha = c => React.createElement("tr", { key: c.id, className: "border-t border-stone-100 hover:bg-stone-50" },
+    React.createElement("td", { className: "px-4 py-3 font-medium" }, c.nome, React.createElement("div", { className: "text-xs text-slate-400 font-normal" }, c.tel)),
+    React.createElement("td", { className: "px-4 py-3 text-slate-600" }, c.origem),
+    React.createElement("td", { className: "px-4 py-3 text-slate-600" }, c.tratamento === "Outro" ? `Outro: ${c.outro}` : c.tratamento),
+    React.createElement("td", { className: "px-4 py-3" }, React.createElement(Badge, { text: c.estagio })),
+    React.createElement("td", { className: "px-4 py-3 text-right whitespace-nowrap" }, React.createElement("button", { onClick: () => onOpen(c.id), className: "text-amber-600 hover:text-amber-800 text-xs font-medium" }, "abrir"), canEdit && React.createElement("button", { onClick: () => onDel(c.id), className: "text-rose-500 hover:text-rose-700 ml-3" }, React.createElement(Trash2, { size: 14 }))));
+  const tabela = (titulo, lista, vazio) => React.createElement("div", { className: "mb-6" },
+    React.createElement("div", { className: "flex items-center gap-2 mb-2" }, React.createElement("h3", { className: "text-sm font-semibold text-slate-700" }, titulo), React.createElement("span", { className: "text-xs bg-stone-200 rounded-full px-2 py-0.5" }, lista.length)),
+    React.createElement("div", { className: "bg-white border border-stone-200 rounded-xl overflow-hidden" },
+      React.createElement("table", { className: "w-full text-sm" },
+        React.createElement("thead", { className: "bg-stone-50 text-slate-500 text-xs uppercase tracking-wide" }, React.createElement("tr", null, React.createElement("th", { className: "text-left px-4 py-3" }, "Paciente"), React.createElement("th", { className: "text-left px-4 py-3" }, "Origem"), React.createElement("th", { className: "text-left px-4 py-3" }, "Tratamento"), React.createElement("th", { className: "text-left px-4 py-3" }, "Estágio"), React.createElement("th", { className: "px-4 py-3" }))),
+        React.createElement("tbody", null, lista.map(linha), lista.length === 0 && React.createElement("tr", null, React.createElement("td", { colSpan: 5, className: "px-4 py-8 text-center text-slate-400" }, vazio))))));
+  return React.createElement("div", { className: "max-w-5xl" },
+    React.createElement("p", { className: "text-sm text-slate-500 mb-3" }, "Pacientes que fecharam. Leads em andamento ficam no Pipeline."),
+    tabela("Clientes", fechados, "Nenhum cliente ainda. Quando um lead for movido para \"Fechou\" no Pipeline, ele vem pra cá automaticamente."));
+}
+
+/* ---------- Agenda ---------- */
+function Agenda({ clientes, setSituacao, requireMaster, agendamentos = [], onDel, onNew, responsaveis = [] }) {
+  const naAgenda = clientes.filter(c => c.situacao && c.situacao !== "—");
+  const acoes = [{ s: "Compareceu", icon: UserCheck, cls: "text-emerald-700 border-emerald-300 bg-emerald-50" }, { s: "No-show", icon: UserX, cls: "text-rose-700 border-rose-300 bg-rose-50" }, { s: "Reagendado", icon: CalendarClock, cls: "text-amber-700 border-amber-300 bg-amber-50" }];
+  const ordenados = [...agendamentos].sort((a, b) => (a.data + a.hora).localeCompare(b.data + b.hora));
+  return React.createElement("div", { className: "space-y-6 max-w-4xl" },
+    React.createElement("div", { className: "flex justify-end" }, React.createElement("button", { onClick: onNew, className: "flex items-center gap-1 text-sm bg-slate-900 text-white rounded-lg px-3 py-2" }, React.createElement(Plus, { size: 16 }), " Novo agendamento")),
+    React.createElement("div", { className: "grid grid-cols-3 gap-4" }, React.createElement(KpiSimple, { title: "Avaliações hoje", value: "0" }), React.createElement(KpiSimple, { title: "Esta semana", value: "0" }), React.createElement(KpiSimple, { title: "Na agenda", value: naAgenda.length + agendamentos.length })),
+    React.createElement(Card, { title: "Compromissos agendados" }, ordenados.length === 0 && React.createElement("div", { className: "text-sm text-slate-400 py-6 text-center" }, "Nenhum compromisso. Clique em ", React.createElement("b", null, "Novo agendamento"), "."), ordenados.map(a => React.createElement("div", { key: a.id, className: "flex items-center justify-between gap-3 py-2.5 border-b border-stone-100 last:border-0 flex-wrap" }, React.createElement("div", { className: "flex items-center gap-3 min-w-[180px]" }, React.createElement("div", { className: "text-center" }, React.createElement("div", { className: "text-sm font-bold text-slate-700" }, a.hora || "--:--"), React.createElement("div", { className: "text-[10px] text-slate-400" }, a.data ? a.data.split("-").reverse().join("/").slice(0, 5) : "")), React.createElement("div", null, React.createElement("div", { className: "text-sm font-medium" }, a.paciente), React.createElement("div", { className: "text-xs text-slate-400" }, a.tipo, a.responsavel ? " · " + a.responsavel : "", a.obs ? " · " + a.obs : ""))), React.createElement("button", { onClick: () => onDel(a.id), className: "text-rose-500 hover:text-rose-700" }, React.createElement(Trash2, { size: 15 }))))),
+    React.createElement(Card, { title: "Avaliações do pipeline — marque o resultado" }, React.createElement("p", { className: "text-xs text-slate-400 mb-3" }, "Pacientes que vieram do funil (estágio \"Agendado\"). O que você marcar atualiza o card ", React.createElement("b", null, "No-show"), " do dashboard na hora."), naAgenda.map(c => React.createElement("div", { key: c.id, className: "flex items-center justify-between gap-3 py-2.5 border-b border-stone-100 last:border-0 flex-wrap" }, React.createElement("div", { className: "min-w-[140px]" }, React.createElement("div", { className: "text-sm font-medium" }, c.nome), React.createElement("div", { className: "text-xs text-slate-400" }, c.tratamento, " · situação: ", React.createElement("b", null, c.situacao))), React.createElement("div", { className: "flex gap-1.5 flex-wrap" }, acoes.map(({ s, icon: Ic, cls }) => React.createElement("button", { key: s, onClick: () => setSituacao(c.id, s), className: `flex items-center gap-1 text-xs border rounded-lg px-2 py-1.5 ${c.situacao === s ? cls : "border-stone-200 text-slate-500"}` }, React.createElement(Ic, { size: 13 }), " ", s)), React.createElement("button", { onClick: () => requireMaster(() => alert("Procedimento concluído.")), className: "flex items-center gap-1 text-xs border border-stone-200 rounded-lg px-2 py-1.5 text-slate-500" }, React.createElement(Lock, { size: 12 }), " término")))), naAgenda.length === 0 && React.createElement("div", { className: "text-sm text-slate-400 py-6 text-center" }, "Nenhum paciente vindo do pipeline. Coloque um lead em \"Agendado\" pela ficha.")));
+}
+function NovoAgendamentoModal({ onClose, onAdd, responsaveis = [], clientes = [] }) {
+  const [f, setF] = useState({ paciente: "", tipo: "Avaliação", data: "", hora: "", responsavel: responsaveis[0] || "", obs: "" });
+  const set = (k, v) => setF(p => ({ ...p, [k]: v }));
+  const ok = f.paciente.trim() && f.data;
+  const tipos = ["Avaliação", "Retorno", "Procedimento", "Reunião", "Outro"];
+  return React.createElement("div", { className: "fixed inset-0 bg-black/40 grid place-items-center p-4 z-50", onClick: onClose },
+    React.createElement("div", { className: "bg-white rounded-2xl w-full max-w-md p-6", onClick: e => e.stopPropagation() },
+      React.createElement("div", { className: "flex items-center justify-between mb-4" }, React.createElement("h3", { className: "font-semibold" }, "Novo agendamento"), React.createElement("button", { onClick: onClose, className: "text-slate-400 hover:text-slate-700" }, React.createElement(X, { size: 18 }))),
+      React.createElement("div", { className: "space-y-3" },
+        React.createElement(Field, { label: "Paciente" }, React.createElement("input", { value: f.paciente, onChange: e => set("paciente", e.target.value), list: "pac-list", className: "w-full border border-stone-300 rounded-lg px-3 py-2 text-sm", placeholder: "Nome do paciente" }), React.createElement("datalist", { id: "pac-list" }, clientes.map(c => React.createElement("option", { key: c.id, value: c.nome })))),
+        React.createElement("div", { className: "grid grid-cols-2 gap-3" }, React.createElement(Field, { label: "Data" }, React.createElement("input", { type: "date", value: f.data, onChange: e => set("data", e.target.value), className: "w-full border border-stone-300 rounded-lg px-3 py-2 text-sm" })), React.createElement(Field, { label: "Hora" }, React.createElement("input", { type: "time", value: f.hora, onChange: e => set("hora", e.target.value), className: "w-full border border-stone-300 rounded-lg px-3 py-2 text-sm" }))),
+        React.createElement("div", { className: "grid grid-cols-2 gap-3" }, React.createElement(Field, { label: "Tipo" }, React.createElement("select", { value: f.tipo, onChange: e => set("tipo", e.target.value), className: "w-full border border-stone-300 rounded-lg px-3 py-2 text-sm bg-white" }, tipos.map(t => React.createElement("option", { key: t }, t)))), React.createElement(Field, { label: "Responsável" }, React.createElement("select", { value: f.responsavel, onChange: e => set("responsavel", e.target.value), className: "w-full border border-stone-300 rounded-lg px-3 py-2 text-sm bg-white" }, responsaveis.length === 0 && React.createElement("option", { value: "" }, "Sem equipe"), responsaveis.map(r => React.createElement("option", { key: r, value: r }, r))))),
+        React.createElement(Field, { label: "Observação" }, React.createElement("input", { value: f.obs, onChange: e => set("obs", e.target.value), className: "w-full border border-stone-300 rounded-lg px-3 py-2 text-sm", placeholder: "Opcional" }))),
+      React.createElement("div", { className: "flex justify-end gap-2 mt-5" }, React.createElement("button", { onClick: onClose, className: "text-sm px-4 py-2 text-slate-500" }, "Cancelar"), React.createElement("button", { disabled: !ok, onClick: () => onAdd(f), className: `text-sm px-4 py-2 rounded-lg font-medium ${ok ? "bg-amber-500 text-slate-900" : "bg-stone-200 text-stone-400"}` }, "Agendar"))));
+}
+
+/* ---------- Tarefas / Equipe / Financeiro ---------- */
+function Tarefas({ tarefas, canEdit, onAdd, onDel, responsaveis }) {
+  return React.createElement("div", { className: "max-w-4xl space-y-3" }, !canEdit && React.createElement("div", { className: "flex items-center gap-2 text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2" }, React.createElement(ShieldAlert, { size: 14 }), " Tarefas estratégicas são definidas pela Falcon (Mentor)."), React.createElement(Card, { title: "Plano de ação" }, React.createElement(TarefaTable, { tarefas, canEdit, onDel, onAdd, responsaveis })));
+}
+function Equipe({ membros, onOpen, onNew, cargos, onAddCargo, onUpdCargo, onDelCargo, podeCargos }) {
+  const [verInativos, setVerInativos] = useState(false);
+  const [verCargos, setVerCargos] = useState(false);
+  const ativos = membros.filter(m => m.ativo);
+  const inativos = membros.filter(m => !m.ativo);
+  const lista = verInativos ? membros.slice() : ativos;
+  const card = m => {
+    const dias = m.criadoEm ? Math.floor((Date.now() - m.criadoEm) / DAY) : null;
+    const tempo = dias === null ? "—" : dias <= 0 ? "ativo desde hoje" : "ativo há " + dias + (dias === 1 ? " dia" : " dias");
+    return React.createElement("button", { key: m.id, onClick: () => onOpen(m.id), className: "text-left bg-white border border-stone-200 rounded-xl p-4 hover:border-amber-300 hover:shadow transition" },
+      React.createElement("div", { className: "flex items-center gap-3" },
+        React.createElement("div", { className: `w-10 h-10 rounded-lg ${AVATAR[m.id % AVATAR.length]} grid place-items-center font-bold text-white` }, initials(m.nome || "?")),
+        React.createElement("div", { className: "flex-1 min-w-0" }, React.createElement("div", { className: "font-semibold truncate" }, m.nome || "(sem nome)"), React.createElement("div", { className: "text-xs text-slate-400 truncate" }, m.email || "sem login")),
+        React.createElement("span", { className: `text-[10px] rounded-full px-2 py-0.5 ${m.ativo ? "bg-emerald-100 text-emerald-700" : "bg-stone-200 text-slate-500"}` }, m.ativo ? "ativo" : "inativo")),
+      React.createElement("div", { className: "flex items-center justify-between mt-3 text-xs" }, React.createElement(Badge, { text: m.cargo }), React.createElement("span", { className: "text-slate-400" }, "🕓 ", tempo)));
+  };
+  return React.createElement("div", { className: "max-w-4xl" },
+    React.createElement("div", { className: "flex items-center justify-between mb-3 gap-2 flex-wrap" },
+      React.createElement("div", { className: "flex items-center gap-2 flex-wrap" },
+        podeCargos && React.createElement("button", { onClick: () => setVerCargos(v => !v), className: `text-sm border rounded-lg px-3 py-2 ${verCargos ? "border-amber-400 bg-amber-50 text-amber-700" : "border-stone-300 text-slate-600"}` }, "Cargos e permissões"),
+        inativos.length > 0 && React.createElement("button", { onClick: () => setVerInativos(v => !v), className: "text-sm text-slate-500 underline" }, verInativos ? "Ocultar inativos" : "Mostrar inativos (" + inativos.length + ")")),
+      React.createElement("button", { onClick: onNew, className: "flex items-center gap-1 text-sm bg-slate-900 text-white rounded-lg px-3 py-2" }, React.createElement(Plus, { size: 16 }), " Novo perfil")),
+    podeCargos && verCargos && React.createElement(CargosManager, { cargos, onAdd: onAddCargo, onUpdate: onUpdCargo, onDelete: onDelCargo }),
+    React.createElement("div", { className: "grid sm:grid-cols-2 gap-3" }, lista.map(card)),
+    lista.length === 0 && React.createElement("div", { className: "text-sm text-slate-400 py-6 text-center" }, "Nenhum perfil ativo. Clique em \"Novo perfil\"."));
+}
+function CargosManager({ cargos, onAdd, onUpdate, onDelete }) {
+  const [novo, setNovo] = useState("");
+  const toggle = (cg, a) => onUpdate(cg.nome, { ...cg, areas: { ...cg.areas, [a]: !cg.areas[a] } });
+  return React.createElement("div", { className: "bg-white border border-stone-200 rounded-xl p-5 mb-4" },
+    React.createElement("h3", { className: "text-sm font-semibold text-slate-700" }, "Cargos e permissões"),
+    React.createElement("p", { className: "text-xs text-slate-400 mb-3 mt-1" }, "Crie os cargos e ligue o que cada um pode abrir. Quem tiver o cargo segue essas permissões (o CEO vê tudo)."),
+    React.createElement("div", { className: "space-y-3" }, cargos.map(cg => React.createElement("div", { key: cg.nome, className: "border border-stone-200 rounded-lg p-3" },
+      React.createElement("div", { className: "flex items-center justify-between mb-2" }, React.createElement("div", null, React.createElement("span", { className: "font-medium text-sm" }, cg.nome), cg.fixo && React.createElement("span", { className: "text-[10px] text-slate-400 ml-2" }, "(vê tudo · fixo)")), !cg.fixo && React.createElement("button", { onClick: () => { if (confirm("Excluir o cargo \"" + cg.nome + "\"?")) onDelete(cg.nome); }, className: "text-rose-500 hover:text-rose-700" }, React.createElement(Trash2, { size: 14 }))),
+      React.createElement("div", { className: "grid grid-cols-2 gap-1.5" }, AREAS.map(a => React.createElement("button", { key: a, disabled: cg.fixo, onClick: () => toggle(cg, a), className: "text-xs border rounded-lg px-2 py-1.5 flex items-center justify-between " + ((cg.fixo || cg.areas[a]) ? "border-emerald-300 bg-emerald-50 text-emerald-700" : "border-stone-200 text-slate-500") }, a, React.createElement("span", null, (cg.fixo || cg.areas[a]) ? "✓" : "—"))))))),
+    React.createElement("div", { className: "flex gap-2 mt-4 pt-3 border-t border-stone-100" }, React.createElement("input", { value: novo, onChange: e => setNovo(e.target.value), onKeyDown: e => { if (e.key === "Enter") { onAdd(novo); setNovo(""); } }, placeholder: "Nome do novo cargo (ex.: Auxiliar)", className: "flex-1 border border-stone-300 rounded-lg px-3 py-2 text-sm" }), React.createElement("button", { onClick: () => { onAdd(novo); setNovo(""); }, className: "bg-slate-900 text-white rounded-lg px-3 text-sm flex items-center gap-1" }, React.createElement(Plus, { size: 14 }), " Criar cargo")));
+}
+function MembroCard({ membro, isNew, onClose, onCreate, onUpdate, onDelete, cargos = [] }) {
+  const [m, setM] = React.useState(membro);
+  const set = (k, v) => setM(p => ({ ...p, [k]: v }));
+  const setCargo = cargo => { const cg = cargos.find(x => x.nome === cargo); setM(p => ({ ...p, cargo, areas: cg ? { ...cg.areas } : p.areas })); };
+  const toggleArea = a => setM(p => ({ ...p, areas: { ...(p.areas || {}), [a]: !(p.areas && p.areas[a]) } }));
+  const salvar = () => { if (!m.nome.trim()) { alert("Dê um nome ao perfil."); return; } isNew ? onCreate(m) : onUpdate(m); };
+  const L = ({ children }) => React.createElement("div", { className: "text-[11px] font-semibold uppercase tracking-wide text-slate-400 mb-1" }, children);
+  const inp = "w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100";
+  return React.createElement("div", { className: "fixed inset-0 bg-black/60 flex justify-end z-50", onClick: onClose },
+    React.createElement("div", { className: "bg-slate-900 text-slate-100 w-full max-w-md h-full overflow-auto", onClick: e => e.stopPropagation() },
+      React.createElement("div", { className: "px-5 py-4 border-b border-slate-800 flex items-start gap-3" }, React.createElement("div", { className: `w-10 h-10 rounded-lg ${AVATAR[(m.id || 0) % AVATAR.length]} grid place-items-center font-bold text-white` }, initials(m.nome || "?")), React.createElement("div", { className: "flex-1 min-w-0" }, React.createElement("h2", { className: "font-semibold leading-tight truncate" }, m.nome || (isNew ? "Novo perfil" : "Perfil")), React.createElement("p", { className: "text-xs text-slate-400 mt-0.5" }, m.cargo)), React.createElement("button", { onClick: onClose, className: "text-slate-400 hover:text-white bg-slate-800 rounded-lg p-1.5" }, React.createElement(X, { size: 16 }))),
+      React.createElement("div", { className: "p-5 space-y-5" },
+        React.createElement("div", null, React.createElement(L, null, "Nome"), React.createElement("input", { value: m.nome, onChange: e => set("nome", e.target.value), className: inp, placeholder: "Nome da pessoa" })),
+        React.createElement("div", { className: "grid grid-cols-2 gap-4" }, React.createElement("div", null, React.createElement(L, null, "E-mail (login)"), React.createElement("input", { value: m.email, onChange: e => set("email", e.target.value), className: inp, placeholder: "email@..." })), React.createElement("div", null, React.createElement(L, null, "Senha"), React.createElement("input", { value: m.senha, onChange: e => set("senha", e.target.value), className: inp, placeholder: "senha" }))),
+        React.createElement("div", { className: "grid grid-cols-2 gap-4" }, React.createElement("div", null, React.createElement(L, null, "Cargo"), React.createElement("select", { value: m.cargo, onChange: e => setCargo(e.target.value), className: inp }, cargos.map(c => React.createElement("option", { key: c.nome }, c.nome)))), React.createElement("div", null, React.createElement(L, null, "Comissão (%)"), React.createElement("input", { type: "number", value: m.comissao, onChange: e => set("comissao", Number(e.target.value)), className: inp }))),
+        React.createElement("p", { className: "text-xs text-slate-400 -mt-1" }, (cargos.find(x => x.nome === m.cargo) || {}).desc || ""),
+        React.createElement("div", null, React.createElement(L, null, "Áreas que este cargo pode abrir"), React.createElement("div", { className: "space-y-1.5 mt-2" }, AREAS.map(a => React.createElement("div", { key: a, className: "flex items-center justify-between bg-slate-800/60 border border-slate-800 rounded-lg px-3 py-2.5" }, React.createElement("span", { className: "text-sm" }, a), React.createElement(Toggle, { on: !!(m.areas && m.areas[a]), onClick: () => toggleArea(a) })))), React.createElement("p", { className: "text-xs text-slate-500 mt-2" }, "Dentro de cada área liberada, a pessoa vê só os registros em que é ", React.createElement("b", null, "Responsável"), ". O CEO vê tudo.")),
+        React.createElement("button", { onClick: () => set("ativo", !m.ativo), className: `w-full flex items-center justify-center gap-2 border rounded-lg py-2.5 text-sm ${m.ativo ? "border-slate-700 text-slate-200 hover:bg-slate-800" : "border-emerald-700 text-emerald-400 hover:bg-emerald-950/40"}` }, React.createElement(Power, { size: 14 }), " ", m.ativo ? "Desativar acesso" : "Ativar acesso"),
+        React.createElement("div", { className: "flex gap-2 pt-1" }, React.createElement("button", { onClick: salvar, className: "flex-1 bg-amber-500 text-slate-900 font-medium rounded-lg py-2.5 text-sm" }, isNew ? "Criar perfil" : "Salvar alterações"), !isNew && React.createElement("button", { onClick: () => { if (confirm(`Excluir o perfil "${m.nome}"?`)) onDelete(m.id); }, className: "px-3 border border-rose-900 text-rose-400 rounded-lg hover:bg-rose-950/40" }, React.createElement(Trash2, { size: 16 }))))));
+}
+const Toggle = ({ on, onClick }) => React.createElement("button", { onClick, className: `w-11 h-6 rounded-full p-0.5 transition-colors shrink-0 ${on ? "bg-emerald-500" : "bg-slate-600"}` }, React.createElement("div", { className: `w-5 h-5 rounded-full bg-white transition-transform ${on ? "translate-x-5" : "translate-x-0"}` }));
+function Financeiro({ clientes, lancamentos = [], onAdd, onDel }) {
+  const [f, setF] = useState({ tipo: "Entrada", descricao: "", valor: 0 });
+  const set = (k, v) => setF(p => ({ ...p, [k]: v }));
+  const entradasCli = clientes.filter(c => c.valor > 0);
+  const totalCli = entradasCli.reduce((s, c) => s + c.valor, 0);
+  const manualEnt = lancamentos.filter(l => l.tipo === "Entrada").reduce((s, l) => s + (l.valor || 0), 0);
+  const saidas = lancamentos.filter(l => l.tipo === "Saída").reduce((s, l) => s + (l.valor || 0), 0);
+  const orthoPg = [];
+  clientes.filter(c => c.tratamento === "OrthoClub").forEach(c => (((c.ortho && c.ortho.pagamentos) || [])).forEach(p => orthoPg.push({ nome: c.nome, data: p.data, valor: p.valor })));
+  orthoPg.sort((a, b) => (b.data || "").localeCompare(a.data || ""));
+  const totalOrtho = orthoPg.reduce((s, p) => s + (p.valor || 0), 0);
+  const totalEnt = totalCli + manualEnt + totalOrtho;
+  const saldo = totalEnt - saidas;
+  const add = () => { if (f.descricao.trim() && Number(f.valor) > 0) { onAdd({ tipo: f.tipo, descricao: f.descricao.trim(), valor: Number(f.valor) }); setF({ tipo: "Entrada", descricao: "", valor: 0 }); } };
+  return React.createElement("div", { className: "space-y-6 max-w-4xl" },
+    React.createElement("div", { className: "grid grid-cols-3 gap-4" },
+      React.createElement(KpiSimple, { title: "Entradas", value: brl(totalEnt) }),
+      React.createElement(KpiSimple, { title: "Saídas", value: brl(saidas) }),
+      React.createElement(KpiSimple, { title: "Saldo", value: brl(saldo) })),
+    React.createElement(Card, { title: "Adicionar lançamento" },
+      React.createElement("div", { className: "flex gap-2 flex-wrap items-center" },
+        React.createElement("select", { value: f.tipo, onChange: e => set("tipo", e.target.value), className: "border border-stone-300 rounded-lg px-2 py-2 text-sm bg-white" }, React.createElement("option", null, "Entrada"), React.createElement("option", null, "Saída")),
+        React.createElement("input", { value: f.descricao, onChange: e => set("descricao", e.target.value), onKeyDown: e => e.key === "Enter" && add(), placeholder: "Descrição (ex.: aluguel, material, contrato avulso)", className: "flex-1 min-w-[160px] border border-stone-300 rounded-lg px-3 py-2 text-sm" }),
+        React.createElement("div", { className: "flex items-center gap-1" }, React.createElement("span", { className: "text-sm text-slate-400" }, "R$"), React.createElement("input", { type: "number", value: f.valor, onChange: e => set("valor", e.target.value), className: "w-28 border border-stone-300 rounded-lg px-2 py-2 text-sm" })),
+        React.createElement("button", { onClick: add, className: "bg-slate-900 text-white rounded-lg px-3 py-2 text-sm flex items-center gap-1" }, React.createElement(Plus, { size: 14 }), " Lançar")),
+      React.createElement("p", { className: "text-[11px] text-slate-400 mt-2" }, "Cada lançamento registra quem lançou e a data, e fica na Auditoria. Excluir um lançamento pede a senha.")),
+    React.createElement(Card, { title: "Lançamentos manuais" }, lancamentos.length === 0 ? React.createElement("div", { className: "text-sm text-slate-400 py-4 text-center" }, "Nenhum lançamento manual ainda.") : React.createElement("div", null, lancamentos.map(l => React.createElement("div", { key: l.id, className: "flex items-center justify-between gap-3 py-2 border-b border-stone-100 last:border-0" },
+      React.createElement("div", { className: "min-w-0" }, React.createElement("div", { className: "text-sm font-medium flex items-center gap-2" }, React.createElement("span", { className: `text-[10px] rounded px-1.5 py-0.5 ${l.tipo === "Saída" ? "bg-rose-100 text-rose-700" : "bg-emerald-100 text-emerald-700"}` }, l.tipo), l.descricao), React.createElement("div", { className: "text-[11px] text-slate-400" }, fmtDT(l.ts), l.autor ? " · " + l.autor : "")),
+      React.createElement("div", { className: "flex items-center gap-3 shrink-0" }, React.createElement("span", { className: `text-sm font-semibold ${l.tipo === "Saída" ? "text-rose-600" : "text-emerald-600"}` }, l.tipo === "Saída" ? "- " : "+ ", brl(l.valor)), onDel && React.createElement("button", { onClick: () => onDel(l.id), className: "text-rose-500 hover:text-rose-700" }, React.createElement(Trash2, { size: 14 }))))))),
+    React.createElement(Card, { title: "Mensalidades OrthoClub (pagamentos registrados)" }, orthoPg.length ? React.createElement("div", null, orthoPg.map((p, i) => React.createElement(Row, { key: i, l: `${p.nome} · ${brData(p.data)}`, v: brl(p.valor) })), React.createElement("div", { className: "flex justify-between pt-2 mt-1 border-t border-stone-100 text-sm font-bold" }, React.createElement("span", null, "Total OrthoClub"), React.createElement("span", null, brl(totalOrtho)))) : React.createElement("div", { className: "text-sm text-slate-400 py-4 text-center" }, "Nenhuma mensalidade registrada ainda.")),
+    React.createElement(Card, { title: "Entradas — contratos e reativações" }, entradasCli.length ? entradasCli.map(c => React.createElement(Row, { key: c.id, l: `${c.nome} · ${c.tratamento}${c.estagio === "Reativação" ? " (reativação)" : ""}`, v: brl(c.valor) })) : React.createElement("div", { className: "text-sm text-slate-400 py-4 text-center" }, "Sem entradas de clientes ainda.")));
+}
+
+/* ---------- Auditoria (Mentor/CEO) ---------- */
+function Auditoria({ clientes, auditoria }) {
+  const membros = clientes.filter(c => c.tratamento === "OrthoClub");
+  const flags = [];
+  membros.forEach(c => {
+    const o = orthoDefaults(c);
+    const dv = diasAte(o.proxVencimento);
+    if (o.status === "Ativo" && dv !== null && dv < -5) flags.push(c.nome + " — marcado Ativo, mas vencido há " + (-dv) + " dias");
+    if (o.status === "Ativo" && (o.pagamentos || []).length === 0) flags.push(c.nome + " — Ativo, mas sem nenhum pagamento registrado");
+    if ((c.mensalidade || 0) === 0) flags.push(c.nome + " — mensalidade está zerada (R$ 0)");
+  });
+  const movs = [];
+  membros.forEach(c => { const o = orthoDefaults(c); (o.historico || []).forEach(hh => movs.push({ ...hh, nome: c.nome })); });
+  movs.sort((a, b) => b.ts - a.ts);
+  const recentes = movs.slice(0, 40);
+  return React.createElement("div", { className: "space-y-6 max-w-4xl" },
+    React.createElement("div", { className: "flex items-center gap-2 text-xs rounded-lg px-3 py-2 border text-amber-800 bg-amber-50 border-amber-200" }, React.createElement(ShieldAlert, { size: 14 }), React.createElement("span", null, "Área de auditoria — visível só para Mentor/CEO. Tudo aqui é gerado automaticamente a partir dos registros dos membros; ninguém edita à mão.")),
+    React.createElement(Card, { title: "Alertas de inconsistência", live: true }, flags.length === 0 ? React.createElement("div", { className: "text-sm text-slate-400 py-4 text-center" }, "Nenhuma inconsistência detectada.") : React.createElement("ul", { className: "space-y-1.5" }, flags.map((f, i) => React.createElement("li", { key: i, className: "text-sm text-amber-800 flex items-start gap-2" }, React.createElement("span", null, "⚠️"), React.createElement("span", null, f))))),
+    React.createElement(Card, { title: "Exclusões e ações sensíveis" }, auditoria.length === 0 ? React.createElement("div", { className: "text-sm text-slate-400 py-4 text-center" }, "Nenhuma ação sensível registrada.") : React.createElement("div", { className: "space-y-2" }, auditoria.map((a, i) => React.createElement("div", { key: i, className: "flex items-center justify-between gap-3 text-sm border-b border-stone-100 pb-1.5 last:border-0" }, React.createElement("div", null, React.createElement("span", { className: "text-[10px] bg-rose-100 text-rose-700 rounded px-1.5 py-0.5 mr-2" }, a.tipo), a.texto), React.createElement("div", { className: "text-[11px] text-slate-400 whitespace-nowrap" }, fmtDT(a.ts), " · ", a.autor))))),
+    React.createElement(Card, { title: "Movimentos recentes — todos os membros" }, recentes.length === 0 ? React.createElement("div", { className: "text-sm text-slate-400 py-4 text-center" }, "Sem movimentos ainda.") : React.createElement("div", { className: "space-y-2" }, recentes.map((hh, i) => React.createElement("div", { key: i, className: "flex gap-3 border-b border-stone-100 pb-2 last:border-0" }, React.createElement("div", { className: "w-2 h-2 rounded-full bg-amber-400 mt-1.5 shrink-0" }), React.createElement("div", { className: "min-w-0 flex-1" }, React.createElement("div", { className: "text-sm text-slate-700" }, React.createElement("b", null, hh.nome), " — ", hh.texto), React.createElement("div", { className: "text-[11px] text-slate-400" }, fmtDT(hh.ts), hh.autor ? " · " + hh.autor : "")))))));
+}
+
+/* ====================== OrthoClub ====================== */
+const ORTHO_UPSELL = ["Clareamento", "Faceta", "Implante", "Prótese", "Limpeza Premium", "Harmonização"];
+const todayISO = () => new Date().toISOString().slice(0, 10);
+const addMonthsISO = (iso, n) => { const base = iso ? new Date(iso + "T00:00") : new Date(); base.setMonth(base.getMonth() + n); return base.toISOString().slice(0, 10); };
+const brData = iso => iso ? iso.split("-").reverse().join("/") : "—";
+const mesesEntre = iso => { if (!iso) return 0; const d = new Date(iso + "T00:00"), n = new Date(); let m = (n.getFullYear() - d.getFullYear()) * 12 + (n.getMonth() - d.getMonth()); if (n.getDate() < d.getDate()) m--; return Math.max(0, m); };
+const faseHist = t => t === "manutencao" ? "tratamento" : t === "beneficio" ? "beneficio" : t === "contato" ? "contato" : "plano";
+const capHistorico = arr => { const grp = {}; (arr || []).forEach(h => { const f = faseHist(h.tipo); (grp[f] = grp[f] || []); if (grp[f].length < 10) grp[f].push(h); }); return Object.values(grp).flat().sort((a, b) => b.ts - a.ts); };
+function orthoDefaults(c) {
+  return {
+    status: "Ativo",
+    dataEntrada: c.criadoEm ? new Date(c.criadoEm).toISOString().slice(0, 10) : "",
+    formaPagamento: "PIX Recorrente",
+    proxVencimento: "",
+    ultimoPagamento: "",
+    mesesAtivos: 0,
+    pagamentos: [],
+    aparelhoInstalado: false,
+    ortodontista: "",
+    ultimaManutencao: "",
+    proxManutencao: "",
+    comparecimentos: 0,
+    limpezaInfo: "1 limpeza a cada 4 meses",
+    ultimaLimpeza: "",
+    proxLimpeza: "",
+    limpezaStatus: "Disponível",
+    extracaoStatus: "Disponível",
+    extracaoData: "",
+    proxExtracao: "",
+    contatos: [],
+    upsell: Object.fromEntries(ORTHO_UPSELL.map(u => [u, false])),
+    observacoes: "",
+    historico: [],
+    ...(c.ortho || {})
+  };
+}
+const diasAte = iso => iso ? Math.ceil((new Date(iso + "T00:00").getTime() - Date.now()) / DAY) : null;
+
+function OrthoClub({ clientes, updCliente, onAddMembro, canEdit, periodo, de, ate, operador }) {
+  const [novo, setNovo] = useState(false);
+  const [busca, setBusca] = useState("");
+  const [selId, setSelId] = useState(null);
+  const membros = clientes.filter(c => c.tratamento === "OrthoClub");
+  const ativos = membros.filter(c => !["Perdido", "Esfriou"].includes(c.estagio) && (c.ortho ? c.ortho.status : "Ativo") !== "Cancelado");
+  const novosMes = membros.filter(c => inPeriodo(c.criadoEm, periodo, de, ate));
+  const recebidas = membros.filter(c => (c.mensStatus || "Em dia") === "Em dia").reduce((s, c) => s + (c.mensalidade || 0), 0);
+  const atrasadas = membros.filter(c => c.mensStatus === "Atrasada").reduce((s, c) => s + (c.mensalidade || 0), 0);
+  const limpezas = membros.filter(c => c.ortho && c.ortho.limpezaStatus === "Disponível").length;
+  const beneficios = membros.reduce((s, c) => s + (c.beneficios || 0), 0);
+  const recorrente = membros.reduce((s, c) => s + (c.mensalidade || 0), 0);
+  // busca só dentro dos associados do OrthoClub, pelo nome
+  const filtrados = membros.filter(c => c.nome.toLowerCase().includes(busca.trim().toLowerCase()));
+  const sel = membros.find(c => c.id === selId) || null;
+  const statusChip = st => st === "Cancelado" ? "bg-rose-100 text-rose-700" : st === "Em atraso" ? "bg-amber-100 text-amber-700" : "bg-emerald-100 text-emerald-700";
+  return React.createElement("div", { className: "space-y-6 max-w-5xl" },
+    React.createElement("div", { className: "flex items-stretch gap-3 flex-wrap" },
+      React.createElement("div", { className: "flex-1 min-w-[260px] rounded-xl p-5 text-slate-900", style: { background: "linear-gradient(135deg,#f5b301,#f59e0b)" } },
+        React.createElement("div", { className: "text-[11px] font-semibold uppercase tracking-wide opacity-80" }, "Receita recorrente OrthoClub"),
+        React.createElement("div", { className: "text-3xl font-bold mt-1" }, brl(recorrente), React.createElement("span", { className: "text-base font-medium opacity-80" }, " /mês")),
+        React.createElement("div", { className: "text-xs mt-1 opacity-80" }, ativos.length, " membros ativos · benefícios usados: ", beneficios)),
+      canEdit && React.createElement("button", { onClick: () => setNovo(true), className: "flex items-center gap-1 text-sm bg-slate-900 text-white rounded-lg px-3 py-2 self-start h-fit" }, React.createElement(Plus, { size: 16 }), " Novo membro")),
+    React.createElement("div", { className: "grid grid-cols-2 sm:grid-cols-3 gap-4" },
+      React.createElement(KpiSimple, { title: "Membros ativos", value: ativos.length }),
+      React.createElement(KpiSimple, { title: "Novos membros", value: novosMes.length }),
+      React.createElement(KpiSimple, { title: "Mensalidades recebidas", value: brl(recebidas) }),
+      React.createElement(KpiSimple, { title: "Mensalidades atrasadas", value: brl(atrasadas) }),
+      React.createElement(KpiSimple, { title: "Limpezas pendentes", value: limpezas }),
+      React.createElement(KpiSimple, { title: "Benefícios utilizados", value: beneficios })),
+    React.createElement("div", { className: "relative" }, React.createElement("input", { value: busca, onChange: e => setBusca(e.target.value), placeholder: "Buscar associado do OrthoClub pelo nome...", className: "w-full border border-stone-300 rounded-xl pl-4 pr-3 py-2.5 text-sm" })),
+    membros.length === 0 && React.createElement(Card, { title: "Membros do OrthoClub" }, React.createElement("div", { className: "text-sm text-slate-400 py-6 text-center" }, "Nenhum membro ainda. Clique em ", React.createElement("b", null, "Novo membro"), ".")),
+    React.createElement("div", { className: "grid sm:grid-cols-2 lg:grid-cols-3 gap-3" }, filtrados.map(c => {
+      const o = orthoDefaults(c);
+      const dv = diasAte(o.proxVencimento);
+      const venc = o.proxVencimento ? (dv < 0 ? "vencido" : "vence em " + dv + "d") : "sem data";
+      return React.createElement("button", { key: c.id, onClick: () => setSelId(c.id), className: "text-left bg-white border border-stone-200 rounded-xl p-4 hover:border-amber-300 hover:shadow transition" },
+        React.createElement("div", { className: "flex items-center gap-3" }, React.createElement("div", { className: `w-10 h-10 rounded-lg ${AVATAR[c.id % AVATAR.length]} grid place-items-center font-bold text-white` }, initials(c.nome)), React.createElement("div", { className: "flex-1 min-w-0" }, React.createElement("div", { className: "font-semibold truncate" }, c.nome), React.createElement("div", { className: "text-xs text-slate-400 truncate" }, c.tel || "—")), React.createElement("span", { className: `text-[10px] rounded-full px-2 py-0.5 ${statusChip(o.status)}` }, o.status)),
+        React.createElement("div", { className: "flex items-center justify-between mt-3 text-xs text-slate-500" }, React.createElement("span", null, brl(c.mensalidade || 0), "/mês"), React.createElement("span", { className: dv !== null && dv < 0 ? "text-rose-500 font-medium" : "" }, venc)),
+        React.createElement("div", { className: "flex items-center justify-between mt-2 pt-2 border-t border-stone-100 text-[11px] text-slate-400" }, React.createElement("span", null, "Próx. manut. ", brData(o.proxManutencao)), React.createElement("span", null, "Benef. ", c.beneficios || 0)));
+    })),
+    membros.length > 0 && filtrados.length === 0 && React.createElement("div", { className: "text-sm text-slate-400 text-center py-4" }, "Nenhum associado encontrado para \"", busca, "\"."),
+    sel && React.createElement(OrthoMemberDrawer, { cliente: sel, canEdit, updCliente, onClose: () => setSelId(null), operador }),
+    novo && React.createElement(NovoMembroModal, { onClose: () => setNovo(false), onAdd: m => { onAddMembro({ ...m, tratamento: "OrthoClub", estagio: "Fechou", situacao: "Compareceu" }); setNovo(false); } }));
+}
+
+/* ---------- Ficha do membro OrthoClub (enxuta + pagamentos + histórico) ---------- */
+function OrthoMemberDrawer({ cliente: c, canEdit, updCliente, onClose, operador }) {
+  const o = orthoDefaults(c);
+  const ro = !canEdit;
+  const [aba, setAba] = useState("ficha");
+  const [coment, setComent] = useState("");
+  const [novoIndicado, setNovoIndicado] = useState("");
+
+  const mesesAtivos = mesesEntre(o.dataEntrada);
+  const receita = (o.pagamentos || []).reduce((s, p) => s + (p.valor || 0), 0);
+  const upChecked = ORTHO_UPSELL.filter(u => o.upsell[u]).length;
+  const upsell = upChecked >= 3 ? "Alto" : upChecked >= 1 ? "Médio" : "Baixo";
+
+  // grava no ortho e registra no histórico em uma única atualização
+  const aplicar = (patch, logTexto, logTipo = "sistema") => {
+    const historico = logTexto ? capHistorico([{ ts: Date.now(), tipo: logTipo, texto: logTexto, autor: operador }, ...(o.historico || [])]) : o.historico;
+    updCliente(c.id, { ortho: { ...o, ...patch, historico }, ...(patch.status ? { mensStatus: patch.status === "Em atraso" ? "Atrasada" : "Em dia" } : {}) });
+  };
+  const setO = patch => aplicar(patch, null);
+
+  // pagamento recorrente: registra e empurra o próximo vencimento
+  const registrarPagamento = () => {
+    const hoje = todayISO();
+    const prox = addMonthsISO(o.proxVencimento || hoje, 1);
+    aplicar({ pagamentos: [{ data: hoje, valor: c.mensalidade || 0 }, ...(o.pagamentos || [])].slice(0, 12), ultimoPagamento: hoje, proxVencimento: prox, status: "Ativo" }, `Pagamento de ${brl(c.mensalidade || 0)} registrado · próximo vencimento ${brData(prox)}`, "pagamento");
+  };
+  const registrarManutencao = () => {
+    const hoje = todayISO();
+    const prox = addMonthsISO(hoje, 1);
+    aplicar({ ultimaManutencao: hoje, proxManutencao: prox, comparecimentos: (o.comparecimentos || 0) + 1 }, `Manutenção realizada · próxima ${brData(prox)}`, "manutencao");
+  };
+  const usarLimpeza = () => {
+    const hoje = todayISO();
+    const prox = addMonthsISO(hoje, 4);
+    const historico = capHistorico([{ ts: Date.now(), tipo: "beneficio", texto: `Limpeza utilizada · próxima disponível ${brData(prox)}`, autor: operador }, ...(o.historico || [])]);
+    updCliente(c.id, { beneficios: (c.beneficios || 0) + 1, ortho: { ...o, limpezaStatus: "Utilizado", ultimaLimpeza: hoje, proxLimpeza: prox, comparecimentos: (o.comparecimentos || 0) + 1, historico } });
+  };
+  const usarExtracao = () => { const hoje = todayISO(); const prox = addMonthsISO(hoje, 1); const historico = capHistorico([{ ts: Date.now(), tipo: "beneficio", texto: `Extração utilizada · próxima disponível ${brData(prox)}`, autor: operador }, ...(o.historico || [])]); updCliente(c.id, { beneficios: (c.beneficios || 0) + 1, ortho: { ...o, extracaoStatus: "Utilizada", extracaoData: hoje, proxExtracao: prox, comparecimentos: (o.comparecimentos || 0) + 1, historico } }); };
+  const setStatus = st => aplicar({ status: st }, `Status alterado para "${st}"`, "status");
+  const addContato = () => { if (!coment.trim()) return; const data = new Date().toLocaleDateString("pt-BR").slice(0, 5); aplicar({ contatos: [{ data, texto: coment.trim() }, ...(o.contatos || [])] }, `Contato: ${coment.trim()}`, "contato"); setComent(""); };
+
+  // alertas automáticos
+  const alertas = [];
+  const dv = diasAte(o.proxVencimento);
+  if (dv !== null && dv >= 0 && dv <= 3) alertas.push("Mensalidade vence em " + dv + " dia(s)");
+  if (dv !== null && dv < 0) alertas.push("Mensalidade vencida há " + (-dv) + " dia(s)");
+  if (c.mensStatus === "Atrasada" || o.status === "Em atraso") alertas.push("Inadimplente — mensalidade em atraso");
+  if (o.limpezaStatus === "Disponível") alertas.push("Limpeza disponível para uso");
+  if (o.extracaoStatus === "Disponível") alertas.push("Extração disponível para uso");
+  const dm = diasAte(o.proxManutencao);
+  if (dm !== null && dm < 0) alertas.push("Manutenção atrasada");
+  const ultVisita = [o.ultimaManutencao, o.ultimaLimpeza].filter(Boolean).map(x => new Date(x).getTime()).sort((a, b) => b - a)[0];
+  if (ultVisita && Math.floor((Date.now() - ultVisita) / DAY) >= 60) alertas.push("Paciente sem comparecer há +60 dias");
+
+  const vencTxt = o.proxVencimento ? (dv < 0 ? `vencido há ${-dv} dia(s)` : `faltam ${dv} dia(s)`) : "sem data";
+  const L = ({ children }) => React.createElement("div", { className: "text-[11px] font-semibold uppercase tracking-wide text-slate-400 mb-1" }, children);
+  const inp = "w-full bg-white border border-stone-300 rounded-lg px-3 py-2 text-sm" + (ro ? " bg-stone-50 text-slate-500" : "");
+  const dataLock = v => React.createElement("div", { className: "border border-stone-200 bg-stone-50 rounded-lg px-3 py-2 text-sm flex items-center justify-between" }, React.createElement("span", null, brData(v)), React.createElement("span", { className: "text-[10px] text-slate-400" }, "🔒"));
+  const Sec = ({ icon, title, children }) => React.createElement("div", { className: "border-t border-stone-100 pt-4 mt-4 first:border-0 first:mt-0 first:pt-0" }, React.createElement("h3", { className: "text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2" }, icon, " ", title), children);
+  const tipoChip = t => ({ pagamento: "bg-emerald-100 text-emerald-700", manutencao: "bg-sky-100 text-sky-700", beneficio: "bg-violet-100 text-violet-700", contato: "bg-amber-100 text-amber-700", status: "bg-rose-100 text-rose-700" })[t] || "bg-stone-100 text-slate-600";
+
+  const indicadores = React.createElement("div", { className: "grid grid-cols-2 sm:grid-cols-4 gap-2 mt-4 text-xs" },
+    React.createElement("div", { className: "bg-slate-800 rounded-lg px-3 py-2" }, React.createElement("div", { className: "text-slate-400" }, "Cliente há"), React.createElement("div", { className: "font-bold text-sm" }, mesesAtivos, " ", mesesAtivos === 1 ? "mês" : "meses")),
+    React.createElement("div", { className: "bg-slate-800 rounded-lg px-3 py-2" }, React.createElement("div", { className: "text-slate-400" }, "Receita"), React.createElement("div", { className: "font-bold text-sm" }, brl(receita))),
+    React.createElement("div", { className: "bg-slate-800 rounded-lg px-3 py-2" }, React.createElement("div", { className: "text-slate-400" }, "Comparec."), React.createElement("div", { className: "font-bold text-sm" }, o.comparecimentos || 0)),
+    React.createElement("div", { className: "bg-slate-800 rounded-lg px-3 py-2" }, React.createElement("div", { className: "text-slate-400" }, "Upsell"), React.createElement("div", { className: `font-bold text-sm ${upsell === "Alto" ? "text-emerald-400" : upsell === "Médio" ? "text-amber-400" : "text-slate-300"}` }, "⭐ ", upsell)));
+
+  const tabs = React.createElement("div", { className: "flex gap-1 mt-4" }, [["ficha", "Ficha"], ["historico", "Histórico"]].map(([k, l]) => React.createElement("button", { key: k, onClick: () => setAba(k), className: `text-xs px-3 py-1.5 rounded-lg ${aba === k ? "bg-amber-500 text-slate-900 font-medium" : "bg-slate-800 text-slate-300"}` }, k === "historico" ? React.createElement("span", { className: "flex items-center gap-1" }, React.createElement(History, { size: 12 }), l) : l)));
+
+  return React.createElement("div", { className: "fixed inset-0 bg-black/40 flex justify-end z-50", onClick: onClose },
+    React.createElement("div", { className: "bg-stone-50 w-full max-w-lg h-full overflow-auto", onClick: e => e.stopPropagation() },
+      React.createElement("div", { className: "bg-slate-900 text-white px-5 py-4 sticky top-0 z-10" },
+        React.createElement("div", { className: "flex items-start gap-3" }, React.createElement("div", { className: `w-11 h-11 rounded-lg ${AVATAR[c.id % AVATAR.length]} grid place-items-center font-bold` }, initials(c.nome)), React.createElement("div", { className: "flex-1 min-w-0" }, React.createElement("h2", { className: "font-semibold truncate" }, c.nome), React.createElement("p", { className: "text-xs text-slate-400" }, "OrthoClub · ", o.status)), React.createElement("button", { onClick: onClose, className: "bg-slate-800 rounded-lg p-1.5 text-slate-300 hover:text-white" }, React.createElement(X, { size: 16 }))),
+        indicadores, tabs),
+      aba === "ficha" && React.createElement("div", { className: "p-5" },
+        alertas.length > 0 && React.createElement("div", { className: "bg-amber-50 border border-amber-200 rounded-xl p-3 mb-4" }, React.createElement("div", { className: "text-xs font-semibold text-amber-800 mb-1 flex items-center gap-1" }, "🚨 Alertas automáticos"), React.createElement("ul", { className: "text-xs text-amber-800 space-y-0.5" }, alertas.map((a, i) => React.createElement("li", { key: i }, "⚠️ ", a)))),
+        React.createElement("div", { className: "bg-white border border-stone-200 rounded-xl p-4" },
+
+          React.createElement(Sec, { icon: "👤", title: "Dados do cliente" },
+            React.createElement("div", { className: "grid grid-cols-2 gap-3" },
+              React.createElement("div", null, React.createElement(L, null, "Telefone"), React.createElement("input", { disabled: ro, value: c.tel || "", onChange: e => updCliente(c.id, { tel: e.target.value }), className: inp })),
+              React.createElement("div", null, React.createElement(L, null, "Data de entrada"), React.createElement("input", { disabled: ro, type: "date", value: o.dataEntrada, onChange: e => setO({ dataEntrada: e.target.value }), className: inp }))),
+            React.createElement("div", { className: "mt-3" }, React.createElement(L, null, "Status"), React.createElement("div", { className: "flex gap-1.5" }, ["Ativo", "Em atraso", "Cancelado"].map(st => React.createElement("button", { key: st, disabled: ro, onClick: () => setStatus(st), className: `text-xs border rounded-lg px-2.5 py-1.5 ${o.status === st ? (st === "Cancelado" ? "border-rose-300 bg-rose-50 text-rose-700" : st === "Em atraso" ? "border-amber-300 bg-amber-50 text-amber-700" : "border-emerald-300 bg-emerald-50 text-emerald-700") : "border-stone-200 text-slate-500"}` }, st === "Ativo" ? "🟢" : st === "Em atraso" ? "🟡" : "🔴", " ", st))))),
+
+          React.createElement(Sec, { icon: "💰", title: "Plano" },
+            React.createElement("div", { className: "grid grid-cols-2 gap-3" },
+              React.createElement("div", null, React.createElement(L, null, "Mensalidade (R$)"), React.createElement("input", { disabled: ro, type: "number", value: c.mensalidade || 0, onChange: e => updCliente(c.id, { mensalidade: Number(e.target.value) }), className: inp })),
+              React.createElement("div", null, React.createElement(L, null, "Forma de pagamento"), React.createElement("input", { disabled: ro, value: o.formaPagamento, onChange: e => setO({ formaPagamento: e.target.value }), className: inp }))),
+            React.createElement("div", { className: "mt-3 flex items-center justify-between bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 gap-2 flex-wrap" },
+              React.createElement("div", null, React.createElement("div", { className: "text-[11px] text-amber-700 font-semibold uppercase tracking-wide" }, "Próximo vencimento"), React.createElement("div", { className: "text-sm font-bold text-amber-800" }, brData(o.proxVencimento), " · ", vencTxt)),
+              !ro && React.createElement("button", { onClick: registrarPagamento, className: "text-xs bg-amber-500 text-slate-900 font-medium rounded-lg px-3 py-1.5 flex items-center gap-1 whitespace-nowrap" }, React.createElement(Plus, { size: 13 }), " Registrar pagamento")),
+            React.createElement("div", { className: "mt-3" }, React.createElement(L, null, "Últimos 3 pagamentos"),
+              (o.pagamentos || []).slice(0, 3).length ? (o.pagamentos || []).slice(0, 3).map((p, i) => React.createElement("div", { key: i, className: "flex items-center justify-between text-sm bg-stone-50 border border-stone-200 rounded-lg px-3 py-1.5 mb-1" }, React.createElement("span", { className: "text-slate-600 flex items-center gap-1" }, "✅ ", brData(p.data)), React.createElement("span", { className: "font-semibold text-emerald-700" }, brl(p.valor)))) : React.createElement("div", { className: "text-xs text-slate-400" }, "Nenhum pagamento registrado ainda. Clique em \"Registrar pagamento\" quando receber."))),
+
+          React.createElement(Sec, { icon: "🦷", title: "Tratamento" },
+            React.createElement("div", { className: "flex items-center gap-2 mb-3 flex-wrap" },
+              React.createElement("button", { disabled: ro, onClick: () => setO({ aparelhoInstalado: !o.aparelhoInstalado }), className: `text-xs border rounded-lg px-2.5 py-1.5 ${o.aparelhoInstalado ? "border-emerald-300 bg-emerald-50 text-emerald-700" : "border-stone-200 text-slate-500"}` }, o.aparelhoInstalado ? "✅ Aparelho instalado" : "Aparelho não instalado"),
+              !ro && React.createElement("button", { onClick: registrarManutencao, className: "text-xs border border-sky-300 bg-sky-50 text-sky-700 rounded-lg px-2.5 py-1.5 flex items-center gap-1" }, React.createElement(Plus, { size: 12 }), " Registrar manutenção")),
+            React.createElement("div", { className: "grid grid-cols-2 gap-3" },
+              React.createElement("div", null, React.createElement(L, null, "Ortodontista"), React.createElement("input", { disabled: ro, value: o.ortodontista, onChange: e => setO({ ortodontista: e.target.value }), className: inp, placeholder: "Dra. ..." })),
+              React.createElement("div", null, React.createElement(L, null, "Comparecimentos"), React.createElement("div", { className: "border border-stone-200 bg-stone-50 rounded-lg px-3 py-2 text-sm font-semibold flex items-center justify-between" }, React.createElement("span", null, o.comparecimentos || 0), React.createElement("span", { className: "text-[10px] font-normal text-slate-400 flex items-center gap-1" }, "🔒 automático"))),
+              React.createElement("div", null, React.createElement(L, null, "Última manutenção"), dataLock(o.ultimaManutencao)),
+              React.createElement("div", null, React.createElement(L, null, "Próxima manutenção"), dataLock(o.proxManutencao)))),
+
+          React.createElement(Sec, { icon: "🎁", title: "Benefícios" },
+            React.createElement("div", { className: "bg-stone-50 rounded-lg p-3 mb-3" },
+              React.createElement("div", { className: "text-xs font-medium mb-2 flex items-center justify-between" }, React.createElement("span", null, "Limpeza ", React.createElement("span", { className: "text-slate-400" }, "· ", o.limpezaInfo)), !ro && o.limpezaStatus === "Disponível" && React.createElement("button", { onClick: usarLimpeza, className: "text-[11px] bg-violet-600 text-white rounded px-2 py-0.5" }, "Usar agora")),
+              React.createElement("div", { className: "grid grid-cols-2 gap-3" },
+                React.createElement("div", null, React.createElement(L, null, "Última limpeza"), dataLock(o.ultimaLimpeza)),
+                React.createElement("div", null, React.createElement(L, null, "Próxima disponível"), dataLock(o.proxLimpeza))),
+              React.createElement("div", { className: "flex gap-1.5 mt-2" }, ["Disponível", "Utilizado"].map(st => React.createElement("button", { key: st, disabled: ro, onClick: () => setO({ limpezaStatus: st }), className: `text-xs border rounded-lg px-2.5 py-1.5 ${o.limpezaStatus === st ? (st === "Disponível" ? "border-emerald-300 bg-emerald-50 text-emerald-700" : "border-rose-300 bg-rose-50 text-rose-700") : "border-stone-200 text-slate-500"}` }, st === "Disponível" ? "🟢" : "🔴", " ", st)))),
+            React.createElement("div", { className: "bg-stone-50 rounded-lg p-3" },
+              React.createElement("div", { className: "text-xs font-medium mb-2 flex items-center justify-between" }, React.createElement("span", null, "Extração ", React.createElement("span", { className: "text-slate-400" }, "· 1 por mês")), !ro && o.extracaoStatus === "Disponível" && React.createElement("button", { onClick: usarExtracao, className: "text-[11px] bg-violet-600 text-white rounded px-2 py-0.5" }, "Usar agora")),
+              React.createElement("div", { className: "grid grid-cols-2 gap-3" },
+                React.createElement("div", null, React.createElement(L, null, "Última extração"), dataLock(o.extracaoData)),
+                React.createElement("div", null, React.createElement(L, null, "Próxima disponível"), dataLock(o.proxExtracao))),
+              React.createElement("div", { className: "flex gap-1.5 mt-2" }, ["Disponível", "Utilizada"].map(st => React.createElement("button", { key: st, disabled: ro, onClick: () => st === "Utilizada" ? usarExtracao() : setO({ extracaoStatus: "Disponível" }), className: `text-xs border rounded-lg px-2.5 py-1.5 ${o.extracaoStatus === st ? (st === "Disponível" ? "border-emerald-300 bg-emerald-50 text-emerald-700" : "border-rose-300 bg-rose-50 text-rose-700") : "border-stone-200 text-slate-500"}` }, st === "Disponível" ? "🟢" : "🔴", " ", st))))),
+
+          React.createElement(Sec, { icon: "📞", title: "Último contato" },
+            (o.contatos || []).length ? React.createElement("div", { className: "text-sm border-l-2 border-amber-300 pl-3 py-1 mb-2" }, React.createElement("span", { className: "text-xs text-slate-400" }, o.contatos[0].data), React.createElement("div", null, o.contatos[0].texto)) : React.createElement("div", { className: "text-xs text-slate-400 mb-2" }, "Sem contatos registrados."),
+            !ro && React.createElement("div", { className: "flex gap-2" }, React.createElement("input", { value: coment, onChange: e => setComent(e.target.value), onKeyDown: e => e.key === "Enter" && addContato(), placeholder: "Registrar contato...", className: "flex-1 border border-stone-300 rounded-lg px-3 py-2 text-sm" }), React.createElement("button", { onClick: addContato, className: "bg-slate-900 text-white rounded-lg px-3 text-sm" }, "Add"))),
+
+          React.createElement(Sec, { icon: "⭐", title: "Indicação" }, React.createElement("div", null, React.createElement(L, null, "Indicado por"), React.createElement("input", { disabled: ro, value: c.indicadoPor || "", onChange: e => updCliente(c.id, { indicadoPor: e.target.value }), placeholder: "Nome de quem indicou (se houver)", className: inp })), React.createElement("div", { className: "mt-3" }, React.createElement(L, null, "Indicou alguém? (adicione os nomes)"), React.createElement("div", { className: "flex gap-1.5 flex-wrap items-center mb-2" }, (c.indicou || []).map((nome, i) => React.createElement("span", { key: i, className: "text-xs bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-full px-2 py-1 flex items-center gap-1" }, nome, !ro && React.createElement("button", { onClick: () => updCliente(c.id, { indicou: (c.indicou || []).filter((_, j) => j !== i) }), className: "text-emerald-600 hover:text-rose-500" }, React.createElement(X, { size: 11 })))), (c.indicou || []).length === 0 && React.createElement("span", { className: "text-xs text-slate-400" }, "Ninguém ainda")), !ro && React.createElement("div", { className: "flex gap-2" }, React.createElement("input", { value: novoIndicado, onChange: e => setNovoIndicado(e.target.value), onKeyDown: e => { if (e.key === "Enter" && novoIndicado.trim()) { updCliente(c.id, { indicou: [...(c.indicou || []), novoIndicado.trim()] }); setNovoIndicado(""); } }, placeholder: "Nome do indicado", className: "flex-1 border border-stone-300 rounded-lg px-3 py-2 text-sm" }), React.createElement("button", { onClick: () => { if (novoIndicado.trim()) { updCliente(c.id, { indicou: [...(c.indicou || []), novoIndicado.trim()] }); setNovoIndicado(""); } }, className: "bg-slate-900 text-white rounded-lg px-3 text-sm" }, "Add")))), 
+          React.createElement(Sec, { icon: "🎯", title: "Potencial de venda" },
+            React.createElement("div", { className: "grid grid-cols-2 gap-2" }, ORTHO_UPSELL.map(u => React.createElement("button", { key: u, disabled: ro, onClick: () => setO({ upsell: { ...o.upsell, [u]: !o.upsell[u] } }), className: `text-xs border rounded-lg px-2.5 py-2 text-left flex items-center gap-2 ${o.upsell[u] ? "border-emerald-300 bg-emerald-50 text-emerald-800" : "border-stone-200 text-slate-600"}` }, o.upsell[u] ? "☑️" : "⬜", " ", u))),
+            React.createElement("div", { className: "mt-3" }, React.createElement(L, null, "Observações"), React.createElement("textarea", { disabled: ro, value: o.observacoes, onChange: e => setO({ observacoes: e.target.value }), rows: 3, className: inp, placeholder: "Ex.: Paciente demonstrou interesse em clareamento após remover o aparelho." }))))),
+
+      aba === "historico" && React.createElement("div", { className: "p-5 space-y-4" },
+        (o.historico || []).length === 0
+          ? React.createElement("div", { className: "bg-white border border-stone-200 rounded-xl p-6 text-sm text-slate-400 text-center" }, "Nenhum movimento ainda. Pagamentos, manutenções, benefícios e contatos aparecem aqui automaticamente.")
+          : [{ icon: "💰", titulo: "Plano", tipos: ["pagamento", "status"] }, { icon: "🦷", titulo: "Tratamento", tipos: ["manutencao"] }, { icon: "🎁", titulo: "Benefícios", tipos: ["beneficio"] }, { icon: "📞", titulo: "Último contato", tipos: ["contato"] }].map(g => {
+              const itens = (o.historico || []).filter(h => g.tipos.includes(h.tipo)).slice(0, 10);
+              return React.createElement("div", { key: g.titulo, className: "bg-white border border-stone-200 rounded-xl p-4" },
+                React.createElement("h3", { className: "text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2" }, g.icon, " ", g.titulo, React.createElement("span", { className: "text-[11px] font-normal text-slate-400" }, "(últimas ", itens.length, ")")),
+                itens.length === 0
+                  ? React.createElement("div", { className: "text-xs text-slate-400" }, "Sem registros nesta fase.")
+                  : React.createElement("div", { className: "space-y-2" }, itens.map((h, i) => React.createElement("div", { key: i, className: "flex gap-3" }, React.createElement("div", { className: "w-2 h-2 rounded-full bg-amber-400 mt-1.5 shrink-0" }), React.createElement("div", { className: "min-w-0 flex-1" }, React.createElement("div", { className: "text-[11px] text-slate-400" }, fmtDT(h.ts), h.autor ? " · " + h.autor : ""), React.createElement("div", { className: "text-sm text-slate-700" }, h.texto))))));
+            }))));
+}
+
+function NovoMembroModal({ onClose, onAdd }) {
+  const [f, setF] = useState({ nome: "", tel: "", mensalidade: 0 });
+  const set = (k, v) => setF(p => ({ ...p, [k]: v }));
+  const ok = f.nome.trim();
+  return React.createElement("div", { className: "fixed inset-0 bg-black/40 grid place-items-center p-4 z-50", onClick: onClose },
+    React.createElement("div", { className: "bg-white rounded-2xl w-full max-w-md p-6", onClick: e => e.stopPropagation() },
+      React.createElement("div", { className: "flex items-center justify-between mb-4" }, React.createElement("h3", { className: "font-semibold" }, "Novo membro OrthoClub"), React.createElement("button", { onClick: onClose, className: "text-slate-400 hover:text-slate-700" }, React.createElement(X, { size: 18 }))),
+      React.createElement("div", { className: "space-y-3" },
+        React.createElement(Field, { label: "Nome do membro" }, React.createElement("input", { value: f.nome, onChange: e => set("nome", e.target.value), className: "w-full border border-stone-300 rounded-lg px-3 py-2 text-sm", placeholder: "Nome completo" })),
+        React.createElement(Field, { label: "Telefone" }, React.createElement("input", { value: f.tel, onChange: e => set("tel", e.target.value), className: "w-full border border-stone-300 rounded-lg px-3 py-2 text-sm", placeholder: "(21) 9...." })),
+        React.createElement(Field, { label: "Mensalidade (R$)" }, React.createElement("input", { type: "number", value: f.mensalidade, onChange: e => set("mensalidade", Number(e.target.value)), className: "w-full border border-stone-300 rounded-lg px-3 py-2 text-sm" }))),
+      React.createElement("div", { className: "flex justify-end gap-2 mt-5" }, React.createElement("button", { onClick: onClose, className: "text-sm px-4 py-2 text-slate-500" }, "Cancelar"), React.createElement("button", { disabled: !ok, onClick: () => onAdd(f), className: `text-sm px-4 py-2 rounded-lg font-medium ${ok ? "bg-amber-500 text-slate-900" : "bg-stone-200 text-stone-400"}` }, "Adicionar membro"))));
+}
+
+/* ---------- modais ---------- */
+function NovoLeadModal({ onClose, onAdd }) {
+  const [f, setF] = useState({ nome: "", tel: "", origem: "Instagram", tratamento: "OrthoClub", outro: "", valorEstimado: 0 });
+  const set = (k, v) => setF(p => ({ ...p, [k]: v }));
+  const ok = f.nome.trim() && (f.tratamento !== "Outro" || f.outro.trim());
+  return React.createElement("div", { className: "fixed inset-0 bg-black/40 grid place-items-center p-4 z-50", onClick: onClose },
+    React.createElement("div", { className: "bg-white rounded-2xl w-full max-w-md p-6", onClick: e => e.stopPropagation() },
+      React.createElement("div", { className: "flex items-center justify-between mb-4" }, React.createElement("h3", { className: "font-semibold" }, "Novo lead"), React.createElement("button", { onClick: onClose, className: "text-slate-400 hover:text-slate-700" }, React.createElement(X, { size: 18 }))),
+      React.createElement("div", { className: "space-y-3" },
+        React.createElement(Field, { label: "Nome do paciente" }, React.createElement("input", { value: f.nome, onChange: e => set("nome", e.target.value), className: "w-full border border-stone-300 rounded-lg px-3 py-2 text-sm", placeholder: "Nome completo" })),
+        React.createElement(Field, { label: "Telefone" }, React.createElement("input", { value: f.tel, onChange: e => set("tel", e.target.value), className: "w-full border border-stone-300 rounded-lg px-3 py-2 text-sm", placeholder: "(21) 9...." })),
+        React.createElement(Field, { label: "Por onde esse lead chegou? (alimenta o Marketing)" }, React.createElement("select", { value: f.origem, onChange: e => set("origem", e.target.value), className: "w-full border border-stone-300 rounded-lg px-3 py-2 text-sm bg-white" }, ORIGENS.map(o => React.createElement("option", { key: o }, o)))),
+        React.createElement(Field, { label: "Tratamento" }, React.createElement("select", { value: f.tratamento, onChange: e => set("tratamento", e.target.value), className: "w-full border border-stone-300 rounded-lg px-3 py-2 text-sm bg-white" }, TRATAMENTOS.map(t => React.createElement("option", { key: t }, t))), f.tratamento === "Outro" && React.createElement("input", { value: f.outro, onChange: e => set("outro", e.target.value), placeholder: "Especifique", className: "mt-2 w-full border border-stone-300 rounded-lg px-3 py-2 text-sm" })),
+        React.createElement(Field, { label: "Valor estimado (R$)" }, React.createElement("input", { type: "number", value: f.valorEstimado, onChange: e => set("valorEstimado", Number(e.target.value)), className: "w-full border border-stone-300 rounded-lg px-3 py-2 text-sm" }))),
+      React.createElement("div", { className: "flex justify-end gap-2 mt-5" }, React.createElement("button", { onClick: onClose, className: "text-sm px-4 py-2 text-slate-500" }, "Cancelar"), React.createElement("button", { disabled: !ok, onClick: () => onAdd(f), className: `text-sm px-4 py-2 rounded-lg font-medium ${ok ? "bg-amber-500 text-slate-900" : "bg-stone-200 text-stone-400"}` }, "Cadastrar lead"))));
+}
+function PasswordModal({ onClose, onOk }) {
+  const [pw, setPw] = useState("");
+  const [err, setErr] = useState(false);
+  const submit = () => pw === MASTER_PASSWORD ? onOk() : setErr(true);
+  return React.createElement("div", { className: "fixed inset-0 bg-black/50 grid place-items-center p-4 z-[60]", onClick: onClose },
+    React.createElement("div", { className: "bg-white rounded-2xl w-full max-w-sm p-6", onClick: e => e.stopPropagation() },
+      React.createElement("div", { className: "flex items-center gap-2 mb-1" }, React.createElement(Lock, { size: 18, className: "text-amber-600" }), React.createElement("h3", { className: "font-semibold" }, "Ação sensível")),
+      React.createElement("p", { className: "text-sm text-slate-500 mb-4" }, "Digite a senha da Juliana (CEO) para continuar."),
+      React.createElement("input", { autoFocus: true, type: "password", value: pw, onChange: e => { setPw(e.target.value); setErr(false); }, onKeyDown: e => e.key === "Enter" && submit(), className: `w-full border rounded-lg px-3 py-2 text-sm ${err ? "border-rose-400" : "border-stone-300"}`, placeholder: "••••••••" }),
+      err && React.createElement("p", { className: "text-xs text-rose-600 mt-1" }, "Senha incorreta."),
+      React.createElement("div", { className: "flex justify-end gap-2 mt-4" }, React.createElement("button", { onClick: onClose, className: "text-sm px-4 py-2 text-slate-500" }, "Cancelar"), React.createElement("button", { onClick: submit, className: "text-sm px-4 py-2 bg-slate-900 text-white rounded-lg" }, "Confirmar"))));
+}
+function MaterialForm({ onAdd }) {
+  const [f, setF] = useState({ titulo: "", link: "" });
+  const ok = f.titulo.trim() && f.link.trim();
+  const guardar = () => { if (!ok) return; let link = f.link.trim(); if (!/^https?:\/\//i.test(link)) link = "https://" + link; onAdd({ titulo: f.titulo.trim(), link }); setF({ titulo: "", link: "" }); };
+  return React.createElement("div", { className: "mt-4 pt-4 border-t border-stone-100 space-y-2" },
+    React.createElement("div", { className: "text-[11px] font-semibold uppercase tracking-wide text-slate-400" }, "Adicionar material (somente Mentor)"),
+    React.createElement("input", { value: f.titulo, onChange: e => setF({ ...f, titulo: e.target.value }), placeholder: "Título do material", className: "w-full border border-stone-300 rounded-lg px-3 py-2 text-sm" }),
+    React.createElement("div", { className: "flex gap-2" }, React.createElement("input", { value: f.link, onChange: e => setF({ ...f, link: e.target.value }), onKeyDown: e => e.key === "Enter" && guardar(), placeholder: "Cole o link (ex.: https://...)", className: "flex-1 border border-stone-300 rounded-lg px-3 py-2 text-sm" }), React.createElement("button", { onClick: guardar, disabled: !ok, className: `text-sm px-4 py-2 rounded-lg font-medium ${ok ? "bg-amber-500 text-slate-900" : "bg-stone-200 text-stone-400"}` }, "Guardar")));
+}
+
+/* ---------- auxiliares ---------- */
+const Card = ({ title, children, live }) => React.createElement("div", { className: "bg-white border border-stone-200 rounded-xl p-5" }, React.createElement("div", { className: "flex items-center gap-2 mb-3" }, React.createElement("h3", { className: "text-sm font-semibold text-slate-700" }, title), live && React.createElement("span", { className: "text-[10px] bg-emerald-100 text-emerald-700 rounded-full px-2 py-0.5 flex items-center gap-1" }, React.createElement(RotateCcw, { size: 10 }), " ao vivo")), children);
+const KpiSimple = ({ title, value }) => React.createElement("div", { className: "bg-white border border-stone-200 rounded-xl p-4" }, React.createElement("div", { className: "text-xs text-slate-500" }, title), React.createElement("div", { className: "text-2xl font-bold mt-1" }, value));
+function KpiMeta({ title, real, meta, setMeta, canEdit, money }) {
+  const pct = meta ? Math.min(100, Math.round(real / meta * 100)) : 0;
+  return React.createElement("div", { className: "bg-white border border-stone-200 rounded-xl p-4" },
+    React.createElement("div", { className: "flex items-center justify-between" }, React.createElement("span", { className: "text-xs text-slate-500" }, title), React.createElement(Target, { size: 13, className: "text-slate-300" })),
+    React.createElement("div", { className: "text-2xl font-bold mt-1" }, money ? brl(real) : real),
+    React.createElement("div", { className: "flex items-center gap-1 mt-1 text-xs text-slate-400" }, React.createElement("span", null, "Meta"), canEdit ? React.createElement("input", { type: "number", value: meta, onChange: e => setMeta(Number(e.target.value)), className: "w-20 border border-stone-300 rounded px-1 py-0.5 text-xs" }) : React.createElement("span", { className: "font-medium text-slate-600" }, money ? brl(meta) : meta)),
+    React.createElement("div", { className: "h-1.5 bg-stone-100 rounded mt-2" }, React.createElement("div", { className: "h-1.5 rounded bg-amber-500", style: { width: `${pct}%` } })));
+}
+function CustoEdit({ label, value, onChange, canEdit }) {
+  return React.createElement("div", null, canEdit ? React.createElement("div", { className: "flex items-center justify-center gap-1" }, React.createElement("span", { className: "text-xs text-slate-400" }, "R$"), React.createElement("input", { type: "number", value, onChange: e => onChange(Number(e.target.value)), className: "w-16 text-sm font-bold border border-stone-300 rounded px-1 text-center" })) : React.createElement("div", { className: "text-sm font-bold" }, brl(value)), React.createElement("div", { className: "text-[11px] text-slate-400 mt-0.5" }, label));
+}
+const BarLine = ({ label, v, max, color }) => React.createElement("div", { className: "flex items-center gap-3" }, React.createElement("span", { className: "w-24 text-xs text-slate-600" }, label), React.createElement("div", { className: "flex-1 h-4 bg-stone-100 rounded" }, React.createElement("div", { className: `h-4 rounded transition-all ${color}`, style: { width: `${max ? v / max * 100 : 0}%` } })), React.createElement("span", { className: "w-6 text-xs font-semibold text-right" }, v));
+const Row = ({ l, v, strong }) => React.createElement("div", { className: "flex justify-between py-1.5 text-sm border-b border-stone-50 last:border-0" }, React.createElement("span", { className: "text-slate-500" }, l), React.createElement("span", { className: strong ? "font-bold" : "font-medium" }, v));
+const Field = ({ label, children }) => React.createElement("div", null, React.createElement("label", { className: "text-xs text-slate-500 block mb-1" }, label), children);
+const Badge = ({ text }) => React.createElement("span", { className: "text-xs bg-slate-100 text-slate-600 rounded-full px-2 py-0.5" }, text);
+function TarefaTable({ tarefas, canEdit, onDel, onAdd, responsaveis = [] }) {
+  const primeiro = responsaveis[0] || "";
+  const [nova, setNova] = useState({ acao: "", resp: primeiro, prazo: "" });
+  return React.createElement("div", null,
+    React.createElement("table", { className: "w-full text-sm" },
+      React.createElement("thead", { className: "text-slate-400 text-xs uppercase tracking-wide" }, React.createElement("tr", null, React.createElement("th", { className: "text-left py-1" }, "Ação"), React.createElement("th", { className: "text-left py-1" }, "Responsável"), React.createElement("th", { className: "text-left py-1" }, "Prazo"), React.createElement("th", { className: "text-left py-1" }, "Status"), React.createElement("th", null))),
+      React.createElement("tbody", null, tarefas.map(t => React.createElement("tr", { key: t.id, className: "border-t border-stone-100" }, React.createElement("td", { className: "py-2" }, t.acao), React.createElement("td", { className: "py-2 text-slate-600" }, t.resp || "—"), React.createElement("td", { className: "py-2 text-slate-600" }, t.prazo), React.createElement("td", { className: "py-2" }, React.createElement(Badge, { text: t.status })), React.createElement("td", { className: "py-2 text-right" }, canEdit && onDel && React.createElement("button", { onClick: () => onDel(t.id), className: "text-rose-500 hover:text-rose-700" }, React.createElement(Trash2, { size: 14 }))))), tarefas.length === 0 && React.createElement("tr", null, React.createElement("td", { colSpan: 5, className: "py-4 text-center text-slate-400" }, "Nenhuma tarefa.")))),
+    canEdit && onAdd && React.createElement("div", { className: "flex gap-2 mt-3 flex-wrap items-center" },
+      React.createElement("input", { value: nova.acao, onChange: e => setNova({ ...nova, acao: e.target.value }), placeholder: "Nova ação", className: "flex-1 min-w-[140px] border border-stone-300 rounded-lg px-2 py-1.5 text-sm" }),
+      React.createElement("select", { value: nova.resp, onChange: e => setNova({ ...nova, resp: e.target.value }), className: "border border-stone-300 rounded-lg px-2 py-1.5 text-sm bg-white", title: "Responsável pela tarefa" }, responsaveis.length === 0 && React.createElement("option", { value: "" }, "Sem equipe"), responsaveis.map(r => React.createElement("option", { key: r, value: r }, r))),
+      React.createElement("input", { value: nova.prazo, onChange: e => setNova({ ...nova, prazo: e.target.value }), placeholder: "Prazo", className: "w-24 border border-stone-300 rounded-lg px-2 py-1.5 text-sm" }),
+      React.createElement("button", { onClick: () => { if (nova.acao.trim()) { onAdd({ ...nova }); setNova({ acao: "", resp: primeiro, prazo: "" }); } }, className: "bg-slate-900 text-white rounded-lg px-3 py-1.5 text-sm flex items-center gap-1" }, React.createElement(Plus, { size: 14 }), " Add")));
+}
+ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(CRMFalcon, null));
+</script></body></html>
